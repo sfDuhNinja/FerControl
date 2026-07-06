@@ -535,7 +535,9 @@ void WPalaControl::mqttPublishStoveHassDiscovery(HassDiscoveryCtx &ctx, Palazzet
   // Supply Water temperature entity
   //
 
-  if (isHydroType)
+  // UICONFIG 2 (this stove) doesn't carry Supply Water on T1 - see the dedicated
+  // Internal/Buffer entities below, confirmed by physically probing each sensor.
+  if (isHydroType && staticData.UICONFIG != 2)
   {
     // T1 probe config is fixed for hydro type stove
 
@@ -556,52 +558,89 @@ void WPalaControl::mqttPublishStoveHassDiscovery(HassDiscoveryCtx &ctx, Palazzet
     ctx.publishEntity(json, F("sensor"), F("SupplyWaterTemp"));
   }
 
-  //
-  // Room/Tank Water/Return Water temperature entity
-  //
-
-  // define probe number
-  probeNumber = staticData.MAINTPROBE; // default case covering AirType and other HydroType
-  if (isHydroType)
+  if (isHydroType && staticData.UICONFIG == 2)
   {
-    if (staticData.UICONFIG == 1)
-      probeNumber = 1; // T2
-    else if (staticData.UICONFIG == 10)
-      probeNumber = 4; // T5
+    //
+    // Internal/Buffer Bottom/Buffer Top temperature entities
+    //
+    // UICONFIG 2 isn't one of Domochip's documented Room/Return Water/Tank Water cases;
+    // confirmed by physically probing each sensor on this exact hardware (Ferroli/Fumis
+    // Alpha with a buffer tank): T1=stove internal temp, T2=buffer bottom, T5=buffer top.
+
+    const __FlashStringHelper *extraTempNameList[] = {F("Internal"), F("Buffer Bottom"), F("Buffer Top")};
+    const __FlashStringHelper *extraTempUniqueIdSuffixList[] = {F("InternalTemp"), F("BufferBottomTemp"), F("BufferTopTemp")};
+    const __FlashStringHelper *extraTempProbeList[] = {F("T1"), F("T2"), F("T5")};
+
+    for (uint8_t i = 0; i < 3; i++)
+    {
+      deserializeJson(json, F("{"
+                              "\"device_class\":\"temperature\","
+                              "\"suggested_display_precision\":1,"
+                              "\"state_class\":\"measurement\","
+                              "\"unit_of_measurement\":\"°C\""
+                              "}"));
+      String defaultEntityIdSuffix = extraTempNameList[i];
+      defaultEntityIdSuffix.replace(" ", "");
+      defaultEntityIdSuffix.toLowerCase();
+      json[F("default_entity_id")] = String(F("sensor.stove_")) + defaultEntityIdSuffix + F("temp");
+      json[F("name")] = String(extraTempNameList[i]) + F(" Temperature");
+      json[F("object_id")] = String(F("stove_")) + defaultEntityIdSuffix + F("temp");
+      json[F("state_topic")] = getStateTopic(F("TMPS"), extraTempProbeList[i]);
+      setValueTemplate(extraTempProbeList[i]);
+
+      // publish
+      ctx.publishEntity(json, F("sensor"), extraTempUniqueIdSuffixList[i]);
+    }
   }
-
-  probeField = String(F("T")) + (char)('1' + probeNumber);
-
-  // define sensor name
-  const __FlashStringHelper *tempSensorNameList[] = {F("Room"), F("Return Water"), F("Tank Water")};
-  const __FlashStringHelper *tempSensorUniqueIdSuffixList[] = {F("RoomTemp"), F("ReturnWaterTemp"), F("TankWaterTemp")};
-  uint8_t tempSensorNameIndex = 0; // default case covering AirType
-  if (isHydroType)
+  else
   {
-    if (staticData.UICONFIG == 1)
-      tempSensorNameIndex = 1; // Return Water
-    else if (staticData.UICONFIG == 3 || staticData.UICONFIG == 4)
-      tempSensorNameIndex = 2; // Tank Water
+    //
+    // Room/Tank Water/Return Water temperature entity
+    //
+
+    // define probe number
+    probeNumber = staticData.MAINTPROBE; // default case covering AirType and other HydroType
+    if (isHydroType)
+    {
+      if (staticData.UICONFIG == 1)
+        probeNumber = 1; // T2
+      else if (staticData.UICONFIG == 10)
+        probeNumber = 4; // T5
+    }
+
+    probeField = String(F("T")) + (char)('1' + probeNumber);
+
+    // define sensor name
+    const __FlashStringHelper *tempSensorNameList[] = {F("Room"), F("Return Water"), F("Tank Water")};
+    const __FlashStringHelper *tempSensorUniqueIdSuffixList[] = {F("RoomTemp"), F("ReturnWaterTemp"), F("TankWaterTemp")};
+    uint8_t tempSensorNameIndex = 0; // default case covering AirType
+    if (isHydroType)
+    {
+      if (staticData.UICONFIG == 1)
+        tempSensorNameIndex = 1; // Return Water
+      else if (staticData.UICONFIG == 3 || staticData.UICONFIG == 4)
+        tempSensorNameIndex = 2; // Tank Water
+    }
+
+    // prepare payload for Stove main temperature sensor
+    deserializeJson(json, F("{"
+                            "\"device_class\":\"temperature\","
+                            "\"suggested_display_precision\":1,"
+                            "\"state_class\":\"measurement\","
+                            "\"unit_of_measurement\":\"°C\""
+                            "}"));
+    String defaultEntityIdSuffix = tempSensorNameList[tempSensorNameIndex];
+    defaultEntityIdSuffix.replace(" ", "");
+    defaultEntityIdSuffix.toLowerCase();
+    json[F("default_entity_id")] = String(F("sensor.stove_")) + defaultEntityIdSuffix + F("temp");
+    json[F("name")] = String(tempSensorNameList[tempSensorNameIndex]) + F(" Temperature");
+    json[F("object_id")] = String(F("stove_")) + defaultEntityIdSuffix + F("temp");
+    json[F("state_topic")] = getStateTopic(F("TMPS"), probeField);
+    setValueTemplate(probeField);
+
+    // publish
+    ctx.publishEntity(json, F("sensor"), tempSensorUniqueIdSuffixList[tempSensorNameIndex]);
   }
-
-  // prepare payload for Stove main temperature sensor
-  deserializeJson(json, F("{"
-                          "\"device_class\":\"temperature\","
-                          "\"suggested_display_precision\":1,"
-                          "\"state_class\":\"measurement\","
-                          "\"unit_of_measurement\":\"°C\""
-                          "}"));
-  String defaultEntityIdSuffix = tempSensorNameList[tempSensorNameIndex];
-  defaultEntityIdSuffix.replace(" ", "");
-  defaultEntityIdSuffix.toLowerCase();
-  json[F("default_entity_id")] = String(F("sensor.stove_")) + defaultEntityIdSuffix + F("temp");
-  json[F("name")] = String(tempSensorNameList[tempSensorNameIndex]) + F(" Temperature");
-  json[F("object_id")] = String(F("stove_")) + defaultEntityIdSuffix + F("temp");
-  json[F("state_topic")] = getStateTopic(F("TMPS"), probeField);
-  setValueTemplate(probeField);
-
-  // publish
-  ctx.publishEntity(json, F("sensor"), tempSensorUniqueIdSuffixList[tempSensorNameIndex]);
 
   //
   // Flue Gas temperature entity (T3)
@@ -2232,8 +2271,6 @@ void WPalaControl::udpRequestHandler(WiFiUDP &udpServer)
 // Used to initialize configuration properties to default values
 void WPalaControl::setConfigDefaultValues()
 {
-  _hwDetection = HwDetection::AutoDetect;
-
   _ha.protocol = HaProtocol::Disabled;
   _ha.hostname[0] = 0;
   _ha.uploadPeriod = 60;
@@ -2251,8 +2288,6 @@ void WPalaControl::setConfigDefaultValues()
 // Parse JSON object into configuration properties
 bool WPalaControl::parseConfigJSON(JsonVariant json, bool fromWebPage /* = false */)
 {
-  parseField(json[F("hwdetection")], _hwDetection);
-
   // Home Automation common
   parseField(json[F("haproto")], _ha.protocol);
   parseField(json[F("hahost")], _ha.hostname);
@@ -2283,8 +2318,6 @@ void WPalaControl::validateConfig()
 // Generate JSON from configuration properties
 void WPalaControl::fillConfigJSON(JsonVariant json, bool forSaveFile /* = false */)
 {
-  json[F("hwdetection")] = _hwDetection;
-
   // Home Automation common
   json[F("haproto")] = _ha.protocol;
   json[F("hahost")] = _ha.hostname;
@@ -2306,9 +2339,6 @@ void WPalaControl::fillConfigJSON(JsonVariant json, bool forSaveFile /* = false 
 // Generate JSON of application status
 void WPalaControl::fillStatusJSON(JsonVariant json)
 {
-  json[F("hwversion")] = _detectedHwVersion == HwVersion::V1 ? F("V1.x") : (_detectedHwVersion == HwVersion::V2 ? F("V2.x") : F("Unknown"));
-  json[F("hwdetection")] = _hwDetection == HwDetection::AutoDetect ? F(" (Auto-Detected)") : F(" (Forced)");
-
   // Home Automation protocol
   if (_ha.protocol == HaProtocol::Mqtt)
     json[F("haprotocol")] = F("MQTT");
@@ -2365,33 +2395,6 @@ bool WPalaControl::appInit(bool reInit /* = false */)
 
   LOG_SERIAL_PRINT(F("Connecting to Stove..."));
 
-// Initialize hw version detection
-#ifdef ESP8266
-  uint8_t hwDetectPin = 5;
-#else
-  uint8_t hwDetectPin = 22;
-#endif
-
-  if (_hwDetection == HwDetection::AutoDetect)
-  {
-    pinMode(hwDetectPin, INPUT_PULLUP);
-    delay(2);
-
-    if (digitalRead(hwDetectPin) == HIGH)
-      _detectedHwVersion = HwVersion::V1;
-    else
-      _detectedHwVersion = HwVersion::V2;
-  }
-  else if (_hwDetection == HwDetection::ForcedV1)
-    _detectedHwVersion = HwVersion::V1;
-  else
-    _detectedHwVersion = HwVersion::V2;
-
-  if (_detectedHwVersion == HwVersion::V1)
-    LOG_SERIAL_PRINT(F("HW1..."));
-  else
-    LOG_SERIAL_PRINT(F("HW2..."));
-
   Palazzetti::CommandResult cmdRes;
   Palazzetti::SerialAdapter palaSerialAdapter = {
       .open = [this](uint32_t baudrate)
@@ -2411,7 +2414,7 @@ bool WPalaControl::appInit(bool reInit /* = false */)
       .uSleep = [this](unsigned long usecond)
       { myUSleep(usecond); }};
 
-  cmdRes = _Pala.initialize(palaSerialAdapter, _detectedHwVersion == HwVersion::V1);
+  cmdRes = _Pala.initialize(palaSerialAdapter, false);
 
   if (cmdRes == Palazzetti::CommandResult::OK)
   {
@@ -2574,6 +2577,92 @@ void WPalaControl::appInitWebServer(WebServer &server)
 
         SERVER_KEEPALIVE_FALSE()
         server.sendHeader(F("Content-Disposition"), F("attachment; filename=\"HPAR.json\""));
+        server.setContentLength(measureJson(json));
+        server.send(200, F("text/json"), "");
+        { auto client = server.client(); serializeJson(json, client); }
+      }
+
+      return;
+    }
+
+    // WPalaControl specific command
+    // Raw stove memory dump for protocol debugging (e.g. mismapped probes on hydro stoves).
+    // Uses Palazzetti::readData(), which only ever issues the protocol's READ opcode (distinct
+    // from the WRITE opcode used by writeData()) - it cannot alter stove state. The range is
+    // capped per request because unassigned addresses retry over a slow serial link before
+    // timing out, so a wide blind scan would block the module for a very long time.
+    if (cmd.startsWith(F("DUMP MEM ")))
+    {
+      String strFileType(cmd.substring(9));
+
+      if (strFileType != F("CSV") && strFileType != F("JSON"))
+      {
+        String ret(F("{\"INFO\":{\"CMD\":\"DUMP MEM\",\"MSG\":\"Incorrect File Type : "));
+        ret += strFileType;
+        ret += F("\"},\"SUCCESS\":false,\"DATA\":{\"NODATA\":true}}");
+        SERVER_KEEPALIVE_FALSE()
+        server.send(200, F("text/json"), ret);
+        return;
+      }
+
+      if (!server.hasArg(F("from")) || !server.hasArg(F("to")))
+      {
+        SERVER_KEEPALIVE_FALSE()
+        server.send(200, F("text/json"), F("{\"INFO\":{\"CMD\":\"DUMP MEM\",\"MSG\":\"Missing required 'from'/'to' query params: hex stove memory addresses, e.g. from=2100&to=2110\"},\"SUCCESS\":false,\"DATA\":{\"NODATA\":true}}"));
+        return;
+      }
+
+      long fromAddr = strtol(server.arg(F("from")).c_str(), nullptr, 16);
+      long toAddr = strtol(server.arg(F("to")).c_str(), nullptr, 16);
+      bool wordMode = server.hasArg(F("mode")) && server.arg(F("mode")) == F("word");
+
+      if (fromAddr < 0 || fromAddr > 0xFFFF || toAddr < fromAddr || toAddr > 0xFFFF || (toAddr - fromAddr) > 256)
+      {
+        SERVER_KEEPALIVE_FALSE()
+        server.send(200, F("text/json"), F("{\"INFO\":{\"CMD\":\"DUMP MEM\",\"MSG\":\"Invalid range: need 0 <= from <= to <= FFFF, max 256 addresses per request\"},\"SUCCESS\":false,\"DATA\":{\"NODATA\":true}}"));
+        return;
+      }
+
+      if (strFileType == F("CSV"))
+      {
+        String toReturn;
+        char line[24];
+        toReturn += F("ADDR;VALUE\r\n");
+
+        for (long addr = fromAddr; addr <= toAddr; addr++)
+        {
+          uint16_t value;
+          Palazzetti::CommandResult cmdRes = _Pala.readData((uint16_t)addr, wordMode, &value);
+          if (cmdRes == Palazzetti::CommandResult::OK)
+            snprintf(line, sizeof(line), "0x%04lX;%u\r\n", addr, value);
+          else
+            snprintf(line, sizeof(line), "0x%04lX;ERR\r\n", addr);
+          toReturn += line;
+        }
+
+        SERVER_KEEPALIVE_FALSE()
+        server.sendHeader(F("Content-Disposition"), F("attachment; filename=\"MEM.csv\""));
+        server.send(200, F("text/csv"), toReturn);
+      }
+      else
+      {
+        JsonDocument json;
+        JsonArray MEM = json[F("MEM")].to<JsonArray>();
+
+        for (long addr = fromAddr; addr <= toAddr; addr++)
+        {
+          uint16_t value;
+          Palazzetti::CommandResult cmdRes = _Pala.readData((uint16_t)addr, wordMode, &value);
+          JsonObject entry = MEM.add<JsonObject>();
+          entry[F("addr")] = addr;
+          if (cmdRes == Palazzetti::CommandResult::OK)
+            entry[F("value")] = value;
+          else
+            entry[F("error")] = true;
+        }
+
+        SERVER_KEEPALIVE_FALSE()
+        server.sendHeader(F("Content-Disposition"), F("attachment; filename=\"MEM.json\""));
         server.setContentLength(measureJson(json));
         server.send(200, F("text/json"), "");
         { auto client = server.client(); serializeJson(json, client); }
