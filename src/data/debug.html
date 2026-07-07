@@ -6,7 +6,9 @@
 </div>
 
 <script>
-    // qsp is substituted at build time by pio_pre_build_spa.py
+    // Unlike status2.html/config2.html this fragment isn't part of a merged group (registered
+    // with an empty fragment_index in pio_pre_build_spa.py, same as fw.html), so there's no
+    // qsp wrapper scoping - plain IDs are unique on the page already.
 
     // Every parameterless GET command the firmware understands (WPalaControl.cpp
     // executePalaCmdGet). HPAR/PARM are the only two that take a parameter, handled
@@ -19,19 +21,19 @@
 
     function debugSetBusy(busy) {
         debugBusy = busy;
-        $(qsp + '#debugCmdList').querySelectorAll('button').forEach(function (btn) { btn.disabled = busy; });
+        $('#debugCmdList').querySelectorAll('button').forEach(function (btn) { btn.disabled = busy; });
     }
 
     function debugRun(cmd) {
         if (debugBusy || !cmd) return;
         debugSetBusy(true);
-        $(qsp + '#debugOutput').textContent = cmd + '\n\nRunning…';
+        $('#debugOutput').textContent = cmd + '\n\nRunning…';
         // '+' for spaces, matching the convention the rest of the app already uses for this
         // endpoint (see status2.html / mqttCallback) rather than %20.
         fetch('/cgi-bin/sendmsg.lua?cmd=' + cmd.trim().replace(/ /g, '+'))
             .then(function (r) { return r.json(); })
-            .then(function (json) { $(qsp + '#debugOutput').textContent = cmd + '\n\n' + JSON.stringify(json, null, 2); })
-            .catch(function (e) { $(qsp + '#debugOutput').textContent = cmd + '\n\nError: ' + e.message; })
+            .then(function (json) { $('#debugOutput').textContent = cmd + '\n\n' + JSON.stringify(json, null, 2); })
+            .catch(function (e) { $('#debugOutput').textContent = cmd + '\n\nError: ' + e.message; })
             .finally(function () { debugSetBusy(false); });
     }
 
@@ -51,7 +53,7 @@
     }
 
     function debugRenderList() {
-        const list = $(qsp + '#debugCmdList');
+        const list = $('#debugCmdList');
         list.innerHTML = '';
         DEBUG_CMDS.forEach(function (cmd) {
             const btn = document.createElement('button');
