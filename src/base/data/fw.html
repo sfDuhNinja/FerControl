@@ -200,7 +200,7 @@
                 redirectWhenReachable(location.origin, 60000);
             },
             function (responseText) {
-                const reason = responseText || 'no response from device — it may have restarted or the connection timed out';
+                const reason = responseText || 'no response from device, it may have restarted or the connection timed out';
                 $('#fwUploadResult').innerHTML = '<span style="color:var(--danger);"><b>Failed</b></span> (' + reason + ')';
                 $('#fwDropzone').style.pointerEvents = '';
             },

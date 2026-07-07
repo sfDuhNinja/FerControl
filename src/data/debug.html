@@ -1,7 +1,10 @@
 <div style="padding-top:12px;">
     <div class="debugLayout">
         <div class="debugCmdList" id="debugCmdList"></div>
-        <pre class="debugOutput" id="debugOutput">Select a command…</pre>
+        <div>
+            <button class="linkBtn" id="debugClearBtn" style="margin-bottom:10px;">Clear output</button>
+            <pre class="debugOutput" id="debugOutput">Select a command…</pre>
+        </div>
     </div>
 </div>
 
@@ -13,9 +16,23 @@
     // Every parameterless GET command the firmware understands (WPalaControl.cpp
     // executePalaCmdGet). HPAR/PARM are the only two that take a parameter, handled
     // separately below with their own inline input.
-    const DEBUG_CMDS = ['GET ALLS', 'GET CHRD', 'GET CNTR', 'GET DPRS', 'GET FAND', 'GET IOPT',
-        'GET LABL', 'GET MDVE', 'GET SETP', 'GET STAT', 'GET STDT', 'GET TIME', 'GET TMPS',
-        'GET POWR', 'GET SERN'];
+    const DEBUG_CMDS = [
+        ['GET ALLS', 'Toate datele live'],
+        ['GET CHRD', 'Program chrono'],
+        ['GET CNTR', 'Contoare (aprinderi, timpi, erori)'],
+        ['GET DPRS', 'Presiune diferențială'],
+        ['GET FAND', 'Ventilatoare'],
+        ['GET IOPT', 'Intrări/ieșiri digitale'],
+        ['GET LABL', 'Eticheta dispozitivului'],
+        ['GET MDVE', 'Model/versiune/dată firmware placă'],
+        ['GET SETP', 'Setpoint și mod eco'],
+        ['GET STAT', 'Status curent'],
+        ['GET STDT', 'Date statice complete'],
+        ['GET TIME', 'Ora centralei'],
+        ['GET TMPS', 'Temperaturi T1-T5'],
+        ['GET POWR', 'Putere și feeder'],
+        ['GET SERN', 'Serie centrală'],
+    ];
 
     let debugBusy = false;
 
@@ -37,9 +54,10 @@
             .finally(function () { debugSetBusy(false); });
     }
 
-    function debugParamRow(label, cmdPrefix) {
+    function debugParamRow(label, cmdPrefix, title) {
         const row = document.createElement('div');
         row.className = 'debugCmdParamRow';
+        row.title = title;
         row.innerHTML = '<span>' + label + '</span>' +
             '<input type="number" min="0" class="field" style="margin:0;">' +
             '<button class="btnGhost">Run</button>';
@@ -55,16 +73,22 @@
     function debugRenderList() {
         const list = $('#debugCmdList');
         list.innerHTML = '';
-        DEBUG_CMDS.forEach(function (cmd) {
+        DEBUG_CMDS.forEach(function (entry) {
+            const [cmd, title] = entry;
             const btn = document.createElement('button');
             btn.className = 'btnGhost debugCmdBtn';
             btn.textContent = cmd;
+            btn.title = title;
             btn.addEventListener('click', function () { debugRun(cmd); });
             list.appendChild(btn);
         });
-        list.appendChild(debugParamRow('GET HPAR', 'GET HPAR'));
-        list.appendChild(debugParamRow('GET PARM', 'GET PARM'));
+        list.appendChild(debugParamRow('GET HPAR', 'GET HPAR', 'Parametru ascuns după index'));
+        list.appendChild(debugParamRow('GET PARM', 'GET PARM', 'Parametru după index'));
     }
+
+    $('#debugClearBtn').addEventListener('click', function () {
+        $('#debugOutput').textContent = 'Select a command…';
+    });
 
     debugRenderList();
 </script>
