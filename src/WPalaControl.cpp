@@ -306,7 +306,9 @@ bool WPalaControl::mqttPublishHassDiscovery()
                           "}"));
   json[F("identifiers")][0] = uniqueIdPrefixStove;
   json[F("model")] = String(staticData.MOD);
-  json[F("sw_version")] = String(staticData.VER) + F(" (") + staticData.FWDATE + ')';
+  // Not reported by this stove (reads back as 0) - omit rather than show garbage "0 (0-00-00)".
+  if (staticData.VER != 0)
+    json[F("sw_version")] = String(staticData.VER) + F(" (") + staticData.FWDATE + ')';
   json[F("via_device")] = uniqueIdPrefix;
   serializeJson(json, device); // serialize to device String
 
@@ -408,9 +410,7 @@ void WPalaControl::mqttPublishStoveHassDiscovery(HassDiscoveryCtx &ctx, Palazzet
   };
 
   // calculate flags (https://github.com/palazzetti/palazzetti-sdk-asset-parser-python/blob/main/palazzetti_sdk_asset_parser/data/asset_parser.json)
-  bool hasSetPoint = (allStatusData.SETP != 0);
   bool hasPower = (staticData.STOVETYPE != 8);
-  bool hasOnOff = (staticData.STOVETYPE != 7 && staticData.STOVETYPE != 8);
   bool hasRoomFan = (staticData.FAN2TYPE > 1);
   bool hasFan3 = (staticData.FAN2TYPE > 3); // Fan order is not the expected one
   bool ifFan3SwitchEntity = (allStatusData.FANLMINMAX[2] == 0 && allStatusData.FANLMINMAX[3] == 1);
@@ -436,22 +436,8 @@ void WPalaControl::mqttPublishStoveHassDiscovery(HassDiscoveryCtx &ctx, Palazzet
   // publish
   ctx.publishEntity(json, F("binary_sensor"), F("Connectivity"), false);
 
-  //
-  // Status entity
-  //
-
-  // prepare payload for Stove status sensor
-  deserializeJson(json, F("{"
-                          "\"default_entity_id\":\"sensor.stove_status\","
-                          "\"entity_category\":\"diagnostic\","
-                          "\"name\":\"Status\","
-                          "\"object_id\":\"stove_status\""
-                          "}"));
-  json[F("state_topic")] = getStateTopic(F("STAT"), F("STATUS"));
-  setValueTemplate(F("STATUS"));
-
-  // publish
-  ctx.publishEntity(json, F("sensor"), F("STATUS"));
+  // The raw numeric Status sensor is not published - Status Text below already covers it
+  // with human-readable messages.
 
   //
   // Status Text entity
@@ -478,6 +464,8 @@ void WPalaControl::mqttPublishStoveHassDiscovery(HassDiscoveryCtx &ctx, Palazzet
   uint8_t probeNumber = staticData.MAINTPROBE;                                                           // default case covering AirType and other HydroType
   if (isHydroType && (staticData.UICONFIG == 1 || staticData.UICONFIG == 3 || staticData.UICONFIG == 4)) // for Hydro which are in a Config controlling Water temperature
     probeNumber = 0;                                                                                     // T1
+  else if (isHydroType && staticData.UICONFIG == 2)                                                      // this stove: buffer top is the meaningful feedback temp, not internal (T1)
+    probeNumber = 4;                                                                                      // T5
 
   String probeField = String(F("T")) + (char)('1' + probeNumber);
 
@@ -513,6 +501,18 @@ void WPalaControl::mqttPublishStoveHassDiscovery(HassDiscoveryCtx &ctx, Palazzet
     json[F("fan_mode_state_topic")] = getStateTopic(F("FAND"), F("F2L"));
 
     json[F("fan_modes")] = serialized((isAirType && hasFanAuto) ? F("[\"off\",\"1\",\"2\",\"3\",\"4\",\"5\",\"high\",\"auto\"]") : F("[\"off\",\"1\",\"2\",\"3\",\"4\",\"5\",\"high\"]"));
+  }
+
+  if (hasPower)
+  {
+    // Power presets, exposed directly on the thermostat card. On this stove's control
+    // panel, power level 5 is displayed as "Auto" rather than "5".
+    json[F("preset_mode_command_template")] = F("SET+POWR+{{ {'1':1,'2':2,'3':3,'4':4,'Auto':5}[value] }}");
+    json[F("preset_mode_command_topic")] = F("~/cmd");
+    setTemplateField(F("preset_mode_value_template"), F("PWR"), F("{{ {1:'1',2:'2',3:'3',4:'4',5:'Auto'}[int({v})] }}"));
+    json[F("preset_mode_state_topic")] = getStateTopic(F("POWR"), F("PWR"));
+
+    json[F("preset_modes")] = serialized(F("[\"1\",\"2\",\"3\",\"4\",\"Auto\"]"));
   }
 
   // Adjust max_temp for stove with air temperature setPoint, goal is to center the range around 19°C (Does someone really wants its room at 51°C ...)
@@ -650,7 +650,6 @@ void WPalaControl::mqttPublishStoveHassDiscovery(HassDiscoveryCtx &ctx, Palazzet
   deserializeJson(json, F("{"
                           "\"default_entity_id\":\"sensor.stove_fluegastemp\","
                           "\"device_class\":\"temperature\","
-                          "\"enabled_by_default\":false,"
                           "\"name\":\"Flue Gas Temperature\","
                           "\"object_id\":\"stove_fluegastemp\","
                           "\"suggested_display_precision\":1,"
@@ -762,84 +761,9 @@ void WPalaControl::mqttPublishStoveHassDiscovery(HassDiscoveryCtx &ctx, Palazzet
   // publish
   ctx.publishEntity(json, F("sensor"), F("DifferentialPressure"));
 
-  //
-  // OnOff entity
-  //
-
-  if (hasOnOff)
-  {
-
-    // prepare payload for Stove onoff switch
-    deserializeJson(json, F("{"
-                            "\"command_topic\":\"~/cmd\","
-                            "\"default_entity_id\":\"switch.stove_on_off\","
-                            "\"icon\":\"mdi:power\","
-                            "\"name\":\"On/Off\","
-                            "\"object_id\":\"stove_on_off\","
-                            "\"payload_off\":\"CMD+OFF\","
-                            "\"payload_on\":\"CMD+ON\","
-                            "\"state_off\":\"OFF\","
-                            "\"state_on\":\"ON\""
-                            "}"));
-    json[F("state_topic")] = getStateTopic(F("STAT"), F("STATUS"));
-    setTemplateField(F("value_template"), F("STATUS"), F("{{ iif(int({v}) > 1 and int({v}) != 10, 'ON', 'OFF') }}"));
-
-    // publish
-    ctx.publishEntity(json, F("switch"), F("ON_OFF"));
-  }
-
-  //
-  // SetPoint entity
-  //
-
-  if (hasSetPoint)
-  {
-
-    // prepare payload for Stove setpoint number
-    deserializeJson(json, F("{"
-                            "\"command_template\":\"SET+SETP+{{ value }}\","
-                            "\"command_topic\":\"~/cmd\","
-                            "\"default_entity_id\":\"number.stove_setp\","
-                            "\"device_class\":\"temperature\","
-                            "\"mode\":\"slider\","
-                            "\"name\":\"SetPoint\","
-                            "\"object_id\":\"stove_setp\","
-                            "\"unit_of_measurement\":\"°C\""
-                            "}"));
-    json[F("min")] = staticData.SPLMIN;
-    json[F("max")] = staticData.SPLMAX;
-    json[F("state_topic")] = getStateTopic(F("SETP"), F("SETP"));
-    setValueTemplate(F("SETP"));
-
-    // publish
-    ctx.publishEntity(json, F("number"), F("SETP"));
-  }
-
-  //
-  // Power entity
-  //
-
-  if (hasPower)
-  {
-
-    // prepare payload for Stove power number
-    deserializeJson(json, F("{"
-                            "\"command_template\":\"SET+POWR+{{ value }}\","
-                            "\"command_topic\":\"~/cmd\","
-                            "\"default_entity_id\":\"number.stove_pwr\","
-                            "\"icon\":\"mdi:signal\","
-                            "\"min\":1,"
-                            "\"max\":5,"
-                            "\"mode\":\"slider\","
-                            "\"name\":\"Power\","
-                            "\"object_id\":\"stove_pwr\""
-                            "}"));
-    json[F("state_topic")] = getStateTopic(F("POWR"), F("PWR"));
-    setValueTemplate(F("PWR"));
-
-    // publish
-    ctx.publishEntity(json, F("number"), F("PWR"));
-  }
+  // On/Off, SetPoint and Power are no longer published as separate entities: the
+  // Thermostat (climate) entity above already covers mode (off/heat), preset_modes
+  // (power 1-4/Auto) and setpoint (target temperature).
 
   //
   // RoomFan entity

@@ -1093,13 +1093,37 @@
             ];
         }
 
+        // Same status codes as the MQTT "Status" text sensor (see STATUS_Text in WPalaControl.cpp).
+        const statusList = [
+            [[0], 'Off', 'var(--text-dim)'],
+            [[1], 'Off Timer', 'var(--text-dim)'],
+            [[2], 'Test Fire', 'var(--accent)'],
+            [[3, 4, 5], 'Ignition', 'var(--accent)'],
+            [[6], 'Burning', 'var(--accent)'],
+            [[9, 12], 'Cool', 'var(--accent)'],
+            [[10], 'Fire Stop', 'var(--text-dim)'],
+            [[11], 'Clean Fire', 'var(--accent)'],
+            [[51], 'Eco idle', 'var(--success)'],
+            [[239], 'MFDoor Alarm', 'var(--danger)'],
+            [[240], 'Fire Error', 'var(--danger)'],
+            [[241], 'Chimney Alarm', 'var(--danger)'],
+            [[243], 'Grate Error', 'var(--danger)'],
+            [[244], 'NTC2 Alarm', 'var(--danger)'],
+            [[245], 'NTC3 Alarm', 'var(--danger)'],
+            [[247], 'Door Alarm', 'var(--danger)'],
+            [[248], 'Pressure Alarm', 'var(--danger)'],
+            [[249], 'NTC1 Alarm', 'var(--danger)'],
+            [[250], 'TC1 Alarm', 'var(--danger)'],
+            [[252], 'Gas Alarm', 'var(--danger)'],
+            [[253], 'No Pellet Alarm', 'var(--danger)'],
+        ];
+
         function statusInfo(code) {
             if (code === undefined) return { label: '—', color: 'var(--text-faint)' };
-            if (code === 0) return { label: 'Off', color: 'var(--text-dim)' };
-            if (code >= 1 && code <= 5) return { label: 'Igniting…', color: 'var(--accent)' };
-            if (code === 6 || code === 9) return { label: 'Burning', color: 'var(--accent)' };
-            if (code === 51) return { label: 'Eco idle', color: 'var(--success)' };
-            return { label: 'Unknown (' + code + ')', color: 'var(--text-dim)' };
+            for (const [codes, label, color] of statusList) {
+                if (codes.includes(code)) return { label, color };
+            }
+            return { label: 'Unknown status (' + code + ')', color: 'var(--text-dim)' };
         }
 
         function closeSlotMenu() { WPC.openSlot = null; renderHero(); }
