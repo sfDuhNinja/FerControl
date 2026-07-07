@@ -7,8 +7,6 @@
 // lets a crash log say exactly which call site ran out of (contiguous) heap.
 extern void *umm_last_fail_alloc_addr;
 extern int umm_last_fail_alloc_size;
-extern const char *umm_last_fail_alloc_file;
-extern int umm_last_fail_alloc_line;
 
 extern "C" void custom_crash_callback(struct rst_info *rst_info, uint32_t stack, uint32_t stack_end)
 {
@@ -71,9 +69,8 @@ extern "C" void custom_crash_callback(struct rst_info *rst_info, uint32_t stack,
     // if the crash was (or involved) a failed allocation, record where it happened
     if (umm_last_fail_alloc_addr)
     {
-        writtenLen = snprintf_P(tmpBuffer, sizeof(tmpBuffer), PSTR("Last failed alloc: %d bytes, caller 0x%08x (%s:%d)\n"),
-                                 umm_last_fail_alloc_size, (uint32_t)umm_last_fail_alloc_addr,
-                                 umm_last_fail_alloc_file ? umm_last_fail_alloc_file : "?", umm_last_fail_alloc_line);
+        writtenLen = snprintf_P(tmpBuffer, sizeof(tmpBuffer), PSTR("Last failed alloc: %d bytes, caller 0x%08x\n"),
+                                 umm_last_fail_alloc_size, (uint32_t)umm_last_fail_alloc_addr);
         if (writtenLen > 0)
             logFile.write(tmpBuffer, writtenLen);
     }
