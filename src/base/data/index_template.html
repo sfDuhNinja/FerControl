@@ -107,6 +107,11 @@
             letter-spacing: -0.01em;
         }
 
+        /* Ferroli brand orange, from the official logo (#FF6201) */
+        .brand-fer {
+            color: #FF6201;
+        }
+
         .masthead-sub {
             font-size: 12.5px;
             color: var(--text-dim);
@@ -353,7 +358,7 @@
         }
 
         .hero-slot-value {
-            font-size: 18px;
+            font-size: 22px;
             font-weight: 700;
             font-family: ui-monospace, SFMono-Regular, 'SF Mono', Consolas, 'Liberation Mono', monospace;
             margin-top: 2px;
@@ -430,7 +435,7 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 12px 20px;
+            padding: 16px 20px;
             margin: 0;
             border: none;
             background: none;
@@ -863,8 +868,8 @@
             <!-- Masthead -->
             <div class="masthead">
                 <div style="flex:1;">
-                    <div class="masthead-title">{{APP_MODEL}}</div>
-                    <div class="masthead-sub">Fumis stove module</div>
+                    <div class="masthead-title"><span class="brand-fer">Fer</span>Control</div>
+                    <div class="masthead-sub">Pellet stove module</div>
                 </div>
                 <div class="hoverWrap" id="rebootWrap">
                     <button class="pill-btn" id="rebootPillBtn">
