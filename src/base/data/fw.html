@@ -70,7 +70,10 @@
         $('#fwBannerLabel').style.color = updateAvailable ? 'var(--accent-text)' : 'var(--success)';
         $('#fwBannerLabel').textContent = (updateAvailable ? 'Update available' : 'Up to date') + (fwState.latestVersion ? (' · v' + fwState.latestVersion) : '');
         $('#fwInstallBtn').style.display = updateAvailable ? '' : 'none';
-        $('#fwLatestTitle').textContent = fwState.latestTitle || '';
+        // Skip when the release title is just the bare version number (e.g. "0.3.18") -
+        // that's already shown in the banner label above ("Update available · v0.3.18").
+        const showTitle = fwState.latestTitle && fwState.latestTitle !== fwState.latestVersion;
+        $('#fwLatestTitle').textContent = showTitle ? fwState.latestTitle : '';
         $('#fwReleaseDate').textContent = fwState.releaseDate ? ('Released ' + fwState.releaseDate) : '';
         // Release notes are plain GitHub-flavored markdown; this renders every non-empty
         // line as one flat bullet, so strip markdown list markers and bold markers to avoid

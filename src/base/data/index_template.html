@@ -569,7 +569,22 @@
             color: var(--accent);
         }
 
+        /* Same 0fr->1fr collapse technique as .accBody/.accBodyInner above. */
+        .rawWrap {
+            display: grid;
+            grid-template-rows: 0fr;
+            opacity: 0;
+            transition: grid-template-rows .28s ease, opacity .2s ease;
+        }
+
+        .rawWrap.open {
+            grid-template-rows: 1fr;
+            opacity: 1;
+        }
+
         .rawGrid {
+            min-height: 0;
+            overflow: hidden;
             margin-top: 14px;
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -1287,7 +1302,7 @@
             Object.assign(WPC.ha, obj);
             const off = !WPC.ha.protocol || WPC.ha.protocol === 'Disabled';
             $('#connDot').style.background = off ? 'var(--text-faint)' : (WPC.ha.mqttStatus === 'Connected' ? 'var(--success)' : 'var(--danger)');
-            $('#connLabel').textContent = off ? 'HA off' : ('MQTT ' + (WPC.ha.mqttStatus || '').toLowerCase());
+            $('#connLabel').textContent = off ? 'HA off' : (WPC.ha.mqttStatus === 'Connected' ? 'MQTT' : ('MQTT ' + (WPC.ha.mqttStatus || '').toLowerCase()));
         };
         // called by the Status fragment (and after clearing) to show/hide the crash banner
         WPC.setCrashInfo = function (count) {

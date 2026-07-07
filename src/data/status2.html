@@ -1,7 +1,21 @@
 <div class="hairlineTop">
     <div class="subhead">Stove</div>
     <div class="kvGrid">
-        <div class="kvRow"><span>Stove serial</span><span class="mono" id="appStoveSn" style="font-size:11.5px;">—</span></div>
+        <div class="kvRow"><span>Status</span><span id="appStoveStatus">—</span></div>
+        <div class="kvRow"><span>Feeder</span><span class="mono" id="appStoveFdr">—</span></div>
+    </div>
+</div>
+
+<div class="hairlineTop">
+    <div class="subhead">Service counters</div>
+    <div class="kvGrid">
+        <div class="kvRow"><span>Ignitions</span><span class="mono" id="appStoveIgn">—</span></div>
+        <div class="kvRow"><span>Power time</span><span class="mono" id="appStovePowerTime">—</span></div>
+        <div class="kvRow"><span>Heating time</span><span class="mono" id="appStoveHeatTime">—</span></div>
+        <div class="kvRow"><span>Service time</span><span class="mono" id="appStoveServiceTime">—</span></div>
+        <div class="kvRow"><span>On time</span><span class="mono" id="appStoveOnTime">—</span></div>
+        <div class="kvRow"><span>Overtemp errors</span><span class="mono" id="appStoveOvertmpErrors">—</span></div>
+        <div class="kvRow"><span>Ignition errors</span><span class="mono" id="appStoveIgnErrors">—</span></div>
     </div>
 </div>
 
@@ -11,7 +25,9 @@
     </svg>
     Raw data
 </button>
-<div class="rawGrid" id="rawGrid" style="display:none;"></div>
+<div class="rawWrap" id="rawWrap">
+    <div class="rawGrid" id="rawGrid"></div>
+</div>
 
 <script>
     // qsp is substituted at build time by pio_pre_build_spa.py
@@ -26,8 +42,29 @@
         $(qsp + '#rawGrid').innerHTML = rows;
     }
 
+    // Mirrors the STATUS_Text mapping used for the Home Assistant sensor (WPalaControl.cpp),
+    // kept in sync manually since one lives as a Jinja template and the other as JS.
+    const STATUS_TEXT = {
+        0: 'Off', 1: 'Off Timer', 2: 'Test Fire', 3: 'Ignition', 4: 'Ignition', 5: 'Ignition',
+        6: 'Burning', 9: 'Cool', 10: 'Fire Stop', 11: 'Clean Fire', 12: 'Cool',
+        239: 'MFDoor Alarm', 240: 'Fire Error', 241: 'Chimney Alarm', 243: 'Grate Error',
+        244: 'NTC2 Alarm', 245: 'NTC3 Alarm', 247: 'Door Alarm', 248: 'Pressure Alarm',
+        249: 'NTC1 Alarm', 250: 'TC1 Alarm', 252: 'Gas Alarm', 253: 'No Pellet Alarm'
+    };
+
     function updateDerivedRows() {
-        if (raw.SN !== undefined) $(qsp + '#appStoveSn').textContent = raw.SN;
+        if (raw.STATUS !== undefined) {
+            const code = parseInt(raw.STATUS);
+            $(qsp + '#appStoveStatus').textContent = STATUS_TEXT[code] || ('Unknown STATUS code ' + code);
+        }
+        if (raw.FDR !== undefined) $(qsp + '#appStoveFdr').textContent = parseFloat(raw.FDR).toFixed(1) + 's';
+        if (raw.IGN !== undefined) $(qsp + '#appStoveIgn').textContent = raw.IGN;
+        if (raw.POWERTIME !== undefined) $(qsp + '#appStovePowerTime').textContent = raw.POWERTIME;
+        if (raw.HEATTIME !== undefined) $(qsp + '#appStoveHeatTime').textContent = raw.HEATTIME;
+        if (raw.SERVICETIME !== undefined) $(qsp + '#appStoveServiceTime').textContent = raw.SERVICETIME;
+        if (raw.ONTIME !== undefined) $(qsp + '#appStoveOnTime').textContent = raw.ONTIME;
+        if (raw.OVERTMPERRORS !== undefined) $(qsp + '#appStoveOvertmpErrors').textContent = raw.OVERTMPERRORS;
+        if (raw.IGNERRORS !== undefined) $(qsp + '#appStoveIgnErrors').textContent = raw.IGNERRORS;
     }
 
     function mergeRaw(partial) {
@@ -39,7 +76,7 @@
 
     $(qsp + '#rawToggleBtn').addEventListener('click', function () {
         rawOpen = !rawOpen;
-        $(qsp + '#rawGrid').style.display = rawOpen ? 'grid' : 'none';
+        $(qsp + '#rawWrap').classList.toggle('open', rawOpen);
         $(qsp + '#rawChev').classList.toggle('open', rawOpen);
     });
 
@@ -59,23 +96,17 @@
         // Seed the raw stove data instantly instead of waiting for the next periodic publish.
         // STAT/TMPS/FAND/CNTR/TIME/SETP/POWR/DPRS are the same set publishTick() runs on the
         // device, so a missed request here just gets backfilled by the next SSE tick.
-        // SERN is the exception: the device's publishTick() never sends it periodically, so a
-        // failed SERN request here has no self-healing - it stays blank until the next full
-        // page load. Give it a few retries since it's the one field that can't recover on its own.
         // Sent one at a time (not Promise.all): the device is a single-threaded ESP8266 web
         // server with a very small TCP connection budget, so firing all requests concurrently
         // can exhaust its sockets and cause failed/reset connections. Sequential requests keep
         // at most one extra connection open on top of the SSE stream.
-        const cmds = ['SERN', 'STAT', 'TMPS', 'FAND', 'CNTR', 'TIME', 'SETP', 'POWR', 'DPRS'];
+        const cmds = ['STAT', 'TMPS', 'FAND', 'CNTR', 'TIME', 'SETP', 'POWR', 'DPRS'];
         for (const cmd of cmds) {
-            const attempts = cmd === 'SERN' ? 3 : 1;
-            for (let attempt = 0; attempt < attempts; attempt++) {
-                try {
-                    const res = await fetch('/cgi-bin/sendmsg.lua?cmd=GET+' + cmd).then(function (r) { return r.json(); });
-                    if (res && res.SUCCESS && res.DATA) { mergeRaw(res.DATA); break; }
-                } catch (e) {
-                    // fall through to retry (SERN) or let the next SSE tick backfill it (everything else)
-                }
+            try {
+                const res = await fetch('/cgi-bin/sendmsg.lua?cmd=GET+' + cmd).then(function (r) { return r.json(); });
+                if (res && res.SUCCESS && res.DATA) mergeRaw(res.DATA);
+            } catch (e) {
+                // fall through - the next SSE tick backfills it
             }
         }
     });
