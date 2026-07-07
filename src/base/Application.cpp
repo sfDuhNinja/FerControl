@@ -176,6 +176,13 @@ bool Application::getLatestUpdateInfo(char *version, char *title /* = nullptr */
 
   // httpCode is 200, we can continue
   WiFiClient *stream = http.getStreamPtr();
+  if (!stream)
+  {
+    // getStreamPtr() returns null if the connection already dropped (e.g. TLS record didn't
+    // fit the MFLN-capped buffer below) - bail out cleanly instead of null-dereferencing it
+    http.end();
+    return false;
+  }
 
   // We need to parse the JSON response without loading the whole response in memory
 
@@ -402,8 +409,12 @@ bool Application::updateFirmware(const char *version, String &retMsg, std::funct
 #ifdef ESP8266
   // Same rationale as getLatestUpdateInfo(): shrink BearSSL's buffers via MFLN so the TLS
   // download doesn't compete with Update's flash-write buffer and the rest of the app for
-  // an already-tight ~80KB of RAM. GitHub's release CDN honors MFLN.
-  clientSecure.setBufferSizes(1024, 512);
+  // an already-tight ~80KB of RAM. Unlike the small metadata GET, the actual asset download
+  // (redirected to GitHub's release CDN) doesn't reliably honor a 1KB receive buffer - a
+  // record that doesn't fit silently drops the connection, which used to crash on the null
+  // stream pointer below instead of failing cleanly. 4KB matches Update's own flash-sector
+  // write size and has held up against the CDN in testing.
+  clientSecure.setBufferSizes(4096, 512);
 #endif
 
   char fwUrl[200];
@@ -445,6 +456,15 @@ bool Application::updateFirmware(const char *version, String &retMsg, std::funct
 
   // get the stream
   WiFiClient *stream = https.getStreamPtr();
+  if (!stream)
+  {
+    // connection dropped between the header response and here (e.g. a TLS record that didn't
+    // fit the buffer above) - fail cleanly instead of null-dereferencing it below
+    https.end();
+    retMsg = F("Lost connection before download could start");
+    LOG_SERIAL_PRINTLN(retMsg);
+    return false;
+  }
   int contentLength = https.getSize();
 
   const char *fwName = strrchr(fwUrl, '/');
