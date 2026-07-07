@@ -6,19 +6,6 @@
     </div>
 </div>
 
-<div class="hairlineTop">
-    <div class="subhead">Service counters</div>
-    <div class="kvGrid">
-        <div class="kvRow"><span>Ignitions</span><span class="mono" id="appStoveIgn">—</span></div>
-        <div class="kvRow"><span>Power time</span><span class="mono" id="appStovePowerTime">—</span></div>
-        <div class="kvRow"><span>Heating time</span><span class="mono" id="appStoveHeatTime">—</span></div>
-        <div class="kvRow"><span>Service time</span><span class="mono" id="appStoveServiceTime">—</span></div>
-        <div class="kvRow"><span>On time</span><span class="mono" id="appStoveOnTime">—</span></div>
-        <div class="kvRow"><span>Overtemp errors</span><span class="mono" id="appStoveOvertmpErrors">—</span></div>
-        <div class="kvRow"><span>Ignition errors</span><span class="mono" id="appStoveIgnErrors">—</span></div>
-    </div>
-</div>
-
 <button class="linkBtn" id="rawToggleBtn" style="margin-top:20px;">
     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" class="chev" id="rawChev">
         <path d="M6 9l6 6 6-6" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
@@ -58,13 +45,6 @@
             $(qsp + '#appStoveStatus').textContent = STATUS_TEXT[code] || ('Unknown STATUS code ' + code);
         }
         if (raw.FDR !== undefined) $(qsp + '#appStoveFdr').textContent = parseFloat(raw.FDR).toFixed(1) + 's';
-        if (raw.IGN !== undefined) $(qsp + '#appStoveIgn').textContent = raw.IGN;
-        if (raw.POWERTIME !== undefined) $(qsp + '#appStovePowerTime').textContent = raw.POWERTIME;
-        if (raw.HEATTIME !== undefined) $(qsp + '#appStoveHeatTime').textContent = raw.HEATTIME;
-        if (raw.SERVICETIME !== undefined) $(qsp + '#appStoveServiceTime').textContent = raw.SERVICETIME;
-        if (raw.ONTIME !== undefined) $(qsp + '#appStoveOnTime').textContent = raw.ONTIME;
-        if (raw.OVERTMPERRORS !== undefined) $(qsp + '#appStoveOvertmpErrors').textContent = raw.OVERTMPERRORS;
-        if (raw.IGNERRORS !== undefined) $(qsp + '#appStoveIgnErrors').textContent = raw.IGNERRORS;
     }
 
     function mergeRaw(partial) {

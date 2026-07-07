@@ -1,0 +1,68 @@
+<div style="padding-top:12px;">
+    <div class="debugLayout">
+        <div class="debugCmdList" id="debugCmdList"></div>
+        <pre class="debugOutput" id="debugOutput">Select a command…</pre>
+    </div>
+</div>
+
+<script>
+    // qsp is substituted at build time by pio_pre_build_spa.py
+
+    // Every parameterless GET command the firmware understands (WPalaControl.cpp
+    // executePalaCmdGet). HPAR/PARM are the only two that take a parameter, handled
+    // separately below with their own inline input.
+    const DEBUG_CMDS = ['GET ALLS', 'GET CHRD', 'GET CNTR', 'GET DPRS', 'GET FAND', 'GET IOPT',
+        'GET LABL', 'GET MDVE', 'GET SETP', 'GET STAT', 'GET STDT', 'GET TIME', 'GET TMPS',
+        'GET POWR', 'GET SERN'];
+
+    let debugBusy = false;
+
+    function debugSetBusy(busy) {
+        debugBusy = busy;
+        $(qsp + '#debugCmdList').querySelectorAll('button').forEach(function (btn) { btn.disabled = busy; });
+    }
+
+    function debugRun(cmd) {
+        if (debugBusy || !cmd) return;
+        debugSetBusy(true);
+        $(qsp + '#debugOutput').textContent = cmd + '\n\nRunning…';
+        // '+' for spaces, matching the convention the rest of the app already uses for this
+        // endpoint (see status2.html / mqttCallback) rather than %20.
+        fetch('/cgi-bin/sendmsg.lua?cmd=' + cmd.trim().replace(/ /g, '+'))
+            .then(function (r) { return r.json(); })
+            .then(function (json) { $(qsp + '#debugOutput').textContent = cmd + '\n\n' + JSON.stringify(json, null, 2); })
+            .catch(function (e) { $(qsp + '#debugOutput').textContent = cmd + '\n\nError: ' + e.message; })
+            .finally(function () { debugSetBusy(false); });
+    }
+
+    function debugParamRow(label, cmdPrefix) {
+        const row = document.createElement('div');
+        row.className = 'debugCmdParamRow';
+        row.innerHTML = '<span>' + label + '</span>' +
+            '<input type="number" min="0" class="field" style="margin:0;">' +
+            '<button class="btnGhost">Run</button>';
+        const input = row.querySelector('input');
+        const btn = row.querySelector('button');
+        btn.addEventListener('click', function () {
+            if (input.value !== '') debugRun(cmdPrefix + ' ' + input.value);
+        });
+        input.addEventListener('keydown', function (e) { if (e.key === 'Enter') btn.click(); });
+        return row;
+    }
+
+    function debugRenderList() {
+        const list = $(qsp + '#debugCmdList');
+        list.innerHTML = '';
+        DEBUG_CMDS.forEach(function (cmd) {
+            const btn = document.createElement('button');
+            btn.className = 'btnGhost debugCmdBtn';
+            btn.textContent = cmd;
+            btn.addEventListener('click', function () { debugRun(cmd); });
+            list.appendChild(btn);
+        });
+        list.appendChild(debugParamRow('GET HPAR', 'GET HPAR'));
+        list.appendChild(debugParamRow('GET PARM', 'GET PARM'));
+    }
+
+    debugRenderList();
+</script>

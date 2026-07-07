@@ -77,6 +77,7 @@ build_spa(
         ('tpl-status', merge_fragments(['src/base/data/status0.html', 'src/base/data/status1.html', 'src/data/status2.html'], 'status')),
         ('tpl-config', merge_fragments(['src/base/data/config0.html', 'src/base/data/config1.html', 'src/data/config2.html'], 'config')),
         ('tpl-fw',     preprocess_fragment(read_file('src/base/data/fw.html'), '')),
+        ('tpl-debug',  preprocess_fragment(read_file('src/data/debug.html'), '')),
     ],
     'src/base/data/index.html',
     placeholders={

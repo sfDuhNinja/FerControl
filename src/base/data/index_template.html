@@ -687,6 +687,65 @@
             color: var(--text);
         }
 
+        /* ---- debug console ---- */
+        .debugLayout {
+            display: grid;
+            grid-template-columns: 170px 1fr;
+            gap: 16px;
+        }
+
+        @media (max-width: 480px) {
+            .debugLayout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .debugCmdList {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            align-content: start;
+        }
+
+        .debugCmdBtn {
+            text-align: left;
+            font-family: ui-monospace, SFMono-Regular, 'SF Mono', Consolas, 'Liberation Mono', monospace;
+        }
+
+        .debugCmdBtn:disabled,
+        .debugCmdParamRow button:disabled {
+            opacity: .5;
+            cursor: default;
+        }
+
+        .debugCmdParamRow {
+            display: grid;
+            grid-template-columns: auto 60px auto;
+            align-items: center;
+            gap: 6px;
+            font-size: 11.5px;
+            color: var(--text-dim);
+        }
+
+        .debugCmdParamRow input {
+            padding: 6px 8px;
+            font-size: 12.5px;
+        }
+
+        .debugOutput {
+            margin: 0;
+            background: var(--input-bg);
+            border-radius: 10px;
+            padding: 12px 14px;
+            font-family: ui-monospace, SFMono-Regular, 'SF Mono', Consolas, 'Liberation Mono', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-break: break-word;
+            max-height: 400px;
+            overflow-y: auto;
+            color: var(--text);
+        }
+
         .btnDanger {
             padding: 8px 14px;
             border-radius: 8px;
@@ -997,6 +1056,25 @@
                         </svg>
                     </button>
                     <div class="accBody" id="accBodyFirmware">
+                        <div class="accBodyInner"></div>
+                    </div>
+                </div>
+
+                <div class="section">
+                    <button class="accHeader" id="accBtnDebug">
+                        <div class="accHeader-left">
+                            <svg width="17" height="17" viewBox="0 0 24 24" fill="none">
+                                <path d="M4 17l6-6-6-6M12 19h8" stroke="var(--text-dim)" stroke-width="1.75"
+                                    stroke-linecap="round" stroke-linejoin="round" />
+                            </svg>
+                            <span class="accHeader-title">Debug</span>
+                        </div>
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" class="chev" id="accChevDebug">
+                            <path d="M6 9l6 6 6-6" stroke="var(--text-dim)" stroke-width="1.75" stroke-linecap="round"
+                                stroke-linejoin="round" />
+                        </svg>
+                    </button>
+                    <div class="accBody" id="accBodyDebug">
                         <div class="accBodyInner"></div>
                     </div>
                 </div>
@@ -1336,7 +1414,7 @@
             if (openedSections[key]) fn();
             else document.addEventListener('section:open:' + key, fn, { once: true });
         };
-        const allSections = ['Status', 'Config', 'Firmware'];
+        const allSections = ['Status', 'Config', 'Firmware', 'Debug'];
 
         function toggleSection(key) {
             const body = $('#accBody' + key);
@@ -1362,6 +1440,7 @@
         $('#accBtnStatus').addEventListener('click', () => toggleSection('Status'));
         $('#accBtnConfig').addEventListener('click', () => toggleSection('Config'));
         $('#accBtnFirmware').addEventListener('click', () => toggleSection('Firmware'));
+        $('#accBtnDebug').addEventListener('click', () => toggleSection('Debug'));
 
         // ---------------------------------------------------------------
         // Reboot (masthead)
@@ -1402,6 +1481,7 @@
         load($('#accBodyStatus .accBodyInner'), 'tpl-status');
         load($('#accBodyConfig .accBodyInner'), 'tpl-config');
         load($('#accBodyFirmware .accBodyInner'), 'tpl-fw');
+        load($('#accBodyDebug .accBodyInner'), 'tpl-debug');
 
         // Status details is open by default -> fire its section:open right away
         openedSections['Status'] = true;
