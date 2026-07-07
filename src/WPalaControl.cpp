@@ -1162,7 +1162,9 @@ Palazzetti::CommandResult WPalaControl::executePalaCmdGet(const String &cmd, Jso
 
   auto addFloat = [](JsonObject &obj, const char *key, float val)
   {
-    char buf[8];
+    // dtostrf doesn't bound-check against buf's size - size it for the worst case a
+    // corrupted/out-of-range serial read could produce (e.g. int16_t/10 -> "-3276.70").
+    char buf[16];
     dtostrf(val, 1, 2, buf);
     obj[key] = serialized(buf);
   };
@@ -1629,7 +1631,9 @@ Palazzetti::CommandResult WPalaControl::executePalaCmdSet(const String &cmd, Jso
 
   auto addFloat = [](JsonObject &obj, const char *key, float val)
   {
-    char buf[8];
+    // dtostrf doesn't bound-check against buf's size - size it for the worst case a
+    // corrupted/out-of-range serial read could produce (e.g. int16_t/10 -> "-3276.70").
+    char buf[16];
     dtostrf(val, 1, 2, buf);
     obj[key] = serialized(buf);
   };
