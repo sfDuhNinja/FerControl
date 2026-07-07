@@ -121,6 +121,9 @@
     $('#fwInstallBtn').addEventListener('click', function () {
         $('#fwInstallBtn').disabled = true;
         $('#fwProgressWrap').style.display = '';
+        // Free the SSE socket/heap it holds - the download needs all the contiguous heap it
+        // can get for its own TLS buffers. Reopened below if the update doesn't end in a reboot.
+        if (WPC.closeStatusStream) WPC.closeStatusStream();
         fetch('/update', { method: 'POST', body: fwState.latestVersion })
             .then(function (response) {
                 if (!response.ok) return response.text().then(function (text) { throw new Error(text); });
@@ -135,6 +138,7 @@
                         } else {
                             $('#fwUpdateResult').innerHTML = '<span style="color:var(--danger);"><b>Failed</b></span> (' + message + ')';
                             $('#fwInstallBtn').disabled = false;
+                            if (WPC.openStatusStream) WPC.openStatusStream();
                         }
                         return;
                     }
@@ -166,6 +170,7 @@
             .catch(function (error) {
                 $('#fwUpdateResult').innerHTML = '<span style="color:var(--danger);"><b>Failed</b></span> (' + error.message + ')';
                 $('#fwInstallBtn').disabled = false;
+                if (WPC.openStatusStream) WPC.openStatusStream();
             });
     });
 

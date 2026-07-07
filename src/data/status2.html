@@ -60,18 +60,31 @@
         $(qsp + '#rawChev').classList.toggle('open', rawOpen);
     });
 
+    // Exposed so other sections (Firmware) can free the socket before an online update, which
+    // needs all the contiguous heap it can get for its own TLS buffers - see WPC.closeStatusStream.
+    WPC.openStatusStream = function () {
+        if (!!window.EventSource && (!WPC.statusEventSource || WPC.statusEventSource.readyState === 2)) {
+            WPC.statusEventSource = new EventSource('/statusEvt' + qsp[8]);
+            WPC.statusEventSource.addEventListener('message', function (e) {
+                mergeRaw(JSON.parse(e.data));
+            });
+        }
+    };
+
+    WPC.closeStatusStream = function () {
+        if (WPC.statusEventSource) {
+            WPC.statusEventSource.close();
+            WPC.statusEventSource = null;
+        }
+    };
+
     onSectionOpen('Status', async function () {
         // Home Automation connectivity info
         getJSON("/gs" + qsp[8], function (GS) {
             WPC.setHaStatus({ protocol: GS.haprotocol, mqttStatus: GS.hamqttstatus });
         });
 
-        if (!!window.EventSource && (typeof statusEventSource === 'undefined' || statusEventSource.readyState === 2)) {
-            var statusEventSource = new EventSource('/statusEvt' + qsp[8]);
-            statusEventSource.addEventListener('message', function (e) {
-                mergeRaw(JSON.parse(e.data));
-            });
-        }
+        WPC.openStatusStream();
 
         // Seed the raw stove data instantly instead of waiting for the next periodic publish.
         // STAT/TMPS/FAND/CNTR/TIME/SETP/POWR/DPRS are the same set publishTick() runs on the
