@@ -686,6 +686,7 @@ void WPalaControl::mqttPublishStoveHassDiscovery(HassDiscoveryCtx &ctx, Palazzet
   deserializeJson(json, F("{"
                           "\"default_entity_id\":\"sensor.stove_pqt\","
                           "\"device_class\":\"weight\","
+                          "\"entity_category\":\"diagnostic\","
                           "\"icon\":\"mdi:chart-bell-curve-cumulative\","
                           "\"name\":\"Pellet Consumed\","
                           "\"object_id\":\"stove_pqt\","
@@ -705,6 +706,7 @@ void WPalaControl::mqttPublishStoveHassDiscovery(HassDiscoveryCtx &ctx, Palazzet
   // prepare payload for Stove service time counter sensor
   deserializeJson(json, F("{"
                           "\"default_entity_id\":\"sensor.stove_servicetimecounter\","
+                          "\"entity_category\":\"diagnostic\","
                           "\"icon\":\"mdi:account-wrench-outline\","
                           "\"name\":\"Service Time Counter\","
                           "\"object_id\":\"stove_servicetimecounter\","
@@ -1211,7 +1213,10 @@ Palazzetti::CommandResult WPalaControl::executePalaCmdGet(const String &cmd, Jso
       _lastKnownBECO = allStatusData.BECO;
       addFloat(data, "SETP", ecoAdjustedSetpoint(allStatusData.SETP, allStatusData.BECO));
       data["PUMP"] = allStatusData.PUMP;
-      data["PQT"] = allStatusData.PQT;
+      // 0xFFFF is the stove's "not available" sentinel for this counter (never populated by
+      // this OEM firmware) - omit rather than publish a meaningless "65535 kg".
+      if (allStatusData.PQT != 0xFFFF)
+        data["PQT"] = allStatusData.PQT;
       data["F1V"] = allStatusData.F1V;
       data["F1RPM"] = allStatusData.F1RPM;
       data["F2L"] = allStatusData.F2L;
@@ -1323,7 +1328,10 @@ Palazzetti::CommandResult WPalaControl::executePalaCmdGet(const String &cmd, Jso
       data["ONTIME"] = countersData.ONTIME;
       data["OVERTMPERRORS"] = countersData.OVERTMPERRORS;
       data["IGNERRORS"] = countersData.IGNERRORS;
-      data["PQT"] = countersData.PQT;
+      // 0xFFFF is the stove's "not available" sentinel for this counter (never populated by
+      // this OEM firmware) - omit rather than publish a meaningless "65535 kg".
+      if (countersData.PQT != 0xFFFF)
+        data["PQT"] = countersData.PQT;
     }
   }
   else if (cmd == F("GET DPRS"))
