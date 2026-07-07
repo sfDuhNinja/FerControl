@@ -473,17 +473,25 @@
             font-size: 15px;
         }
 
+        /* Grid 0fr->1fr sizes to whatever the fragment ends up containing (including content
+           that loads in asynchronously after opening), so there's no fixed height to get out
+           of sync - unlike animating max-height against a one-time scrollHeight measurement. */
         .accBody {
-            padding: 4px 20px 22px;
-            max-height: 0;
-            overflow: hidden;
+            display: grid;
+            grid-template-rows: 0fr;
             opacity: 0;
-            transition: max-height .28s ease, opacity .2s ease;
+            transition: grid-template-rows .28s ease, opacity .2s ease;
         }
 
         .accBody.open {
-            max-height: none;
+            grid-template-rows: 1fr;
             opacity: 1;
+        }
+
+        .accBodyInner {
+            min-height: 0;
+            overflow: hidden;
+            padding: 4px 20px 22px;
         }
 
         /* ---- generic content helpers (used inside fragments) ---- */
@@ -932,7 +940,9 @@
                                 stroke-linejoin="round" />
                         </svg>
                     </button>
-                    <div class="accBody open" id="accBodyStatus"></div>
+                    <div class="accBody open" id="accBodyStatus">
+                        <div class="accBodyInner"></div>
+                    </div>
                 </div>
 
                 <div class="section">
@@ -953,7 +963,9 @@
                                 stroke-linejoin="round" />
                         </svg>
                     </button>
-                    <div class="accBody" id="accBodyConfig"></div>
+                    <div class="accBody" id="accBodyConfig">
+                        <div class="accBodyInner"></div>
+                    </div>
                 </div>
 
                 <div class="section">
@@ -970,7 +982,9 @@
                                 stroke-linejoin="round" />
                         </svg>
                     </button>
-                    <div class="accBody" id="accBodyFirmware"></div>
+                    <div class="accBody" id="accBodyFirmware">
+                        <div class="accBodyInner"></div>
+                    </div>
                 </div>
             </div>
 
@@ -1313,42 +1327,21 @@
         };
         const allSections = ['Status', 'Config', 'Firmware'];
 
-        // Animates .accBody between collapsed (max-height:0) and expanded (max-height:none).
-        // max-height can't transition to/from 'none' directly, so we pin it to the fragment's
-        // actual scrollHeight for the animation and let it settle back to 'none' (via the .open
-        // class) once expanded, so content added later (e.g. async status data) isn't clipped.
-        function animateAccBody(body, expand) {
-            if (expand) {
-                body.classList.add('open');
-                body.style.maxHeight = body.scrollHeight + 'px';
-                const onEnd = function (e) {
-                    if (e.propertyName !== 'max-height') return;
-                    body.removeEventListener('transitionend', onEnd);
-                    if (body.classList.contains('open')) body.style.maxHeight = '';
-                };
-                body.addEventListener('transitionend', onEnd);
-            } else {
-                body.style.maxHeight = body.scrollHeight + 'px';
-                body.classList.remove('open');
-                void body.offsetHeight; // force reflow so the pinned height above is committed first
-                body.style.maxHeight = '0px';
-            }
-        }
-
         function toggleSection(key) {
             const body = $('#accBody' + key);
             const chev = $('#accChev' + key);
             const nowOpen = !body.classList.contains('open');
 
             // Exclusive accordion: opening one section closes the others.
+            // The grid-rows transition (see .accBody CSS) sizes itself to whatever content
+            // ends up inside, so no JS height measurement is needed here.
             allSections.forEach(function (k) {
                 if (k === key) return;
-                const otherBody = $('#accBody' + k);
-                if (otherBody.classList.contains('open')) animateAccBody(otherBody, false);
+                $('#accBody' + k).classList.remove('open');
                 $('#accChev' + k).classList.remove('open');
             });
 
-            animateAccBody(body, nowOpen);
+            body.classList.toggle('open', nowOpen);
             chev.classList.toggle('open', nowOpen);
             if (nowOpen && !openedSections[key]) {
                 openedSections[key] = true;
@@ -1395,9 +1388,9 @@
         // ---------------------------------------------------------------
         // Mount the three sections immediately (always present, no page nav)
         // ---------------------------------------------------------------
-        load($('#accBodyStatus'), 'tpl-status');
-        load($('#accBodyConfig'), 'tpl-config');
-        load($('#accBodyFirmware'), 'tpl-fw');
+        load($('#accBodyStatus .accBodyInner'), 'tpl-status');
+        load($('#accBodyConfig .accBodyInner'), 'tpl-config');
+        load($('#accBodyFirmware .accBodyInner'), 'tpl-fw');
 
         // Status details is open by default -> fire its section:open right away
         openedSections['Status'] = true;
