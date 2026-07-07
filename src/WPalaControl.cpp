@@ -301,7 +301,7 @@ bool WPalaControl::mqttPublishHassDiscovery()
 
   // prepare Stove device JSON
   deserializeJson(json, F("{"
-                          "\"configuration_url\":\"http://wpalacontrol.local\","
+                          "\"configuration_url\":\"http://fercontrol.local\","
                           "\"name\":\"Stove\""
                           "}"));
   json[F("identifiers")][0] = uniqueIdPrefixStove;

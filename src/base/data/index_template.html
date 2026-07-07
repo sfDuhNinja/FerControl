@@ -5,7 +5,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="description" content="{{APP_MODEL}}">
-    <title>Domochip {{APP_MODEL}}</title>
+    <title>{{APP_MODEL}}</title>
 
     <style>
         @font-face {
@@ -1055,7 +1055,7 @@
 
         (function () {
             try {
-                const saved = JSON.parse(localStorage.getItem('wpalacontrol-hero-layout') || 'null');
+                const saved = JSON.parse(localStorage.getItem('fercontrol-hero-layout') || 'null');
                 if (saved && Array.isArray(saved.slotAssignments) && saved.mainSlotKey) {
                     WPC.slotAssignments = saved.slotAssignments;
                     WPC.mainSlotKey = saved.mainSlotKey;
@@ -1065,7 +1065,7 @@
 
         function persistHeroLayout() {
             try {
-                localStorage.setItem('wpalacontrol-hero-layout', JSON.stringify({
+                localStorage.setItem('fercontrol-hero-layout', JSON.stringify({
                     slotAssignments: WPC.slotAssignments, mainSlotKey: WPC.mainSlotKey
                 }));
             } catch (e) { }

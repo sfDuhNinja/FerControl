@@ -1,9 +1,9 @@
-![GitHub Release](https://img.shields.io/github/v/release/sfDuhNinja/WPalaControl)
+![GitHub Release](https://img.shields.io/github/v/release/sfDuhNinja/FerControl)
 ![Home Assistant](https://img.shields.io/badge/home_assistant-2024.11-blue.svg?logo=homeassistant)
 
-# WPalaControl (Ferroli / Fumis Alpha fork)
+# FerControl (Ferroli / Fumis Alpha fork of WPalaControl)
 
-> Full credit for **WPalaControl** (hardware, firmware base, Fumis/Palazzetti protocol) goes to **[Domochip](https://github.com/Domochip/WPalaControl)**. This fork is unaffiliated and unendorsed; it just carries a redesigned web dashboard (dark mode, live status widget, reorganized accordion UI, mobile fixes) for my own Ferroli/Fumis Alpha setup. Firmware updates point to this repo instead of upstream.
+> Full credit for the original **WPalaControl** project (hardware, firmware base, Fumis/Palazzetti protocol) goes to **[Domochip](https://github.com/Domochip/WPalaControl)**. This fork is unaffiliated and unendorsed; renamed to **FerControl** to keep it clearly distinct from upstream, it carries a redesigned web dashboard (dark mode, live status widget, reorganized accordion UI, mobile fixes) for my own Ferroli/Fumis Alpha setup. Firmware updates point to this repo instead of upstream.
 >
 > Everything else (full HTTP/MQTT API, stove compatibility, Home Assistant/Jeedom integration, hardware schematics) is documented upstream: **[Domochip/WPalaControl](https://github.com/Domochip/WPalaControl)**.
 
