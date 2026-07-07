@@ -29,12 +29,14 @@
                 $(qsp + '#crashCount').textContent = GS.crashcount;
                 $(qsp + '#crashRow').style.display = 'flex';
             }
+            WPC.setCrashInfo(GS.crashcount);
         });
     });
 
     $(qsp + '#crashClrBtn').addEventListener('click', function () {
         post('/crashclr', null, function () {
             $(qsp + '#crashRow').style.display = 'none';
+            WPC.setCrashInfo(0);
         }, function () { alert('Failed to clear crashes'); });
     });
 </script>

@@ -269,7 +269,7 @@ bool Application::getLatestUpdateInfo(char *version, char *title /* = nullptr */
     else if (summary && keyLen >= 7 && memcmp(keyBuffer + keyLen - 7, "\"body\":", 7) == 0)
     {
       targetPtr = summary;
-      targetMaxLen = 255;
+      targetMaxLen = 499;
     }
 
     // if this is not a key we are looking for, continue
@@ -358,7 +358,7 @@ void Application::fillLatestUpdateInfoJson(JsonVariant json, bool forWebPage /* 
 {
   json[F("installed_version")] = VERSION;
 
-  char version[10], title[64], releaseDate[11], summary[256];
+  char version[10], title[64], releaseDate[11], summary[500];
 
   if (getLatestUpdateInfo(version, title, releaseDate, summary))
   {

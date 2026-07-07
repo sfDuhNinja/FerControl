@@ -72,7 +72,13 @@
         $('#fwInstallBtn').style.display = updateAvailable ? '' : 'none';
         $('#fwLatestTitle').textContent = fwState.latestTitle || '';
         $('#fwReleaseDate').textContent = fwState.releaseDate ? ('Released ' + fwState.releaseDate) : '';
-        const summaryLines = (fwState.summary || '').split(/\r\n|\n/).map(l => l.trim()).filter(Boolean);
+        // Release notes are plain GitHub-flavored markdown; this renders every non-empty
+        // line as one flat bullet, so strip markdown list markers and bold markers to avoid
+        // a doubled "• - " look and stray "**" characters.
+        const summaryLines = (fwState.summary || '')
+            .split(/\r\n|\n/)
+            .map(l => l.trim().replace(/^[-*]\s+/, '').replace(/\*\*/g, ''))
+            .filter(Boolean);
         $('#fwSummary').innerHTML = summaryLines.map(l => '<li>' + l + '</li>').join('');
         const link = $('#fwReleaseUrl');
         if (fwState.releaseUrl) { link.href = fwState.releaseUrl; link.style.display = 'inline-block'; }
