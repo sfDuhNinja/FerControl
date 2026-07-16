@@ -15,9 +15,9 @@
             --text: #12141C;
             --text-dim: #666E7C;
             --text-faint: #9AA1AD;
-            --accent: #2563EB;
-            --accent-soft: #EAF1FE;
-            --accent-text: #1D4ED8;
+            --accent: #D9530A;
+            --accent-soft: #FDEEE2;
+            --accent-text: #B0430A;
             --danger: #DC2626;
             --danger-soft: #FCE9E8;
             --success: #189A52;
@@ -34,9 +34,9 @@
                 --text: #EDEDED;
                 --text-dim: #999999;
                 --text-faint: #5C5C5C;
-                --accent: #5B9BF5;
-                --accent-soft: #1C2733;
-                --accent-text: #9CC1F7;
+                --accent: #FF7A33;
+                --accent-soft: #2A1A10;
+                --accent-text: #FFB184;
                 --danger: #EF6B5D;
                 --danger-soft: #241716;
                 --success: #45C97D;
@@ -247,12 +247,102 @@
         }
 
         /* ---- hero ---- */
+        /* Registered so the ember tint can transition smoothly (a raw custom property can't).
+           Unsupported browsers just skip the transition - the tint still applies. */
+        @property --ember-core {
+            syntax: '<color>';
+            inherits: true;
+            initial-value: transparent;
+        }
+
+        @property --ember-edge {
+            syntax: '<color>';
+            inherits: true;
+            initial-value: transparent;
+        }
+
+        /* Ambient "radiant heat" behind the hero: warm-only tones bleeding in from off-canvas
+           (not a centred spotlight), drifting slowly. Intensity is driven by the stove's actual
+           combustion state via .is-firing below - resting = barely-there, firing = warmer glow.
+           Painted as the element's own background so slot-menu stacking is untouched. */
         .hero {
-            background: var(--surface);
+            --ember-core: rgba(255, 98, 1, 0.055);
+            --ember-edge: rgba(255, 140, 60, 0.04);
+            position: relative;
+            background-color: var(--surface);
+            background-image:
+                radial-gradient(ellipse 62% 55%, var(--ember-core), transparent 63%),
+                radial-gradient(ellipse 55% 48%, var(--ember-edge), transparent 60%);
+            background-repeat: no-repeat;
+            background-size: 150% 170%, 125% 150%;
+            background-position: 13% 120%, 91% -20%;
             border: 1px solid var(--border);
             border-radius: 20px;
             padding: 30px 28px;
             margin-bottom: 20px;
+            /* Apple-style ambient motion: one seamless closed loop (0%==100%) at constant
+               velocity, so there's no visible back-and-forth "reversal" the way an alternate
+               animation has. Long period keeps it deferential. */
+            animation: heroEmber 42s linear infinite;
+            /* Warm-up when firing rides an Apple easeOut curve - quick to respond, gentle settle. */
+            transition: --ember-core 1.8s cubic-bezier(0.22, 0.61, 0.36, 1),
+                        --ember-edge 1.8s cubic-bezier(0.22, 0.61, 0.36, 1);
+        }
+
+        /* Stove is actively burning: warm the glow up (crossfaded by the transition above). */
+        .hero.is-firing {
+            --ember-core: rgba(255, 98, 1, 0.13);
+            --ember-edge: rgba(255, 128, 48, 0.085);
+        }
+
+        /* Dark mode needs a touch more presence to read against the near-black surface,
+           while staying well under the level that would wash out the light hero text. */
+        @media (prefers-color-scheme: dark) {
+            .hero {
+                --ember-core: rgba(255, 122, 51, 0.11);
+                --ember-edge: rgba(255, 96, 28, 0.065);
+            }
+
+            .hero.is-firing {
+                --ember-core: rgba(255, 128, 56, 0.22);
+                --ember-edge: rgba(255, 96, 28, 0.13);
+            }
+        }
+
+        /* Two warm fields tracing slightly different phased orbits that return exactly to their
+           start - the loop is seamless, so the drift reads as continuous ambient warmth rather
+           than a slider sweeping out and back. The gentle background-size swell is the "breath". */
+        @keyframes heroEmber {
+            0% {
+                background-position: 10% 121%, 93% -22%;
+                background-size: 150% 170%, 124% 150%;
+            }
+
+            25% {
+                background-position: 19% 112%, 83% -13%;
+                background-size: 158% 178%, 130% 156%;
+            }
+
+            50% {
+                background-position: 25% 119%, 77% -21%;
+                background-size: 151% 184%, 124% 149%;
+            }
+
+            75% {
+                background-position: 16% 127%, 87% -30%;
+                background-size: 159% 176%, 131% 157%;
+            }
+
+            100% {
+                background-position: 10% 121%, 93% -22%;
+                background-size: 150% 170%, 124% 150%;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .hero {
+                animation: none;
+            }
         }
 
         .hero-top {
@@ -582,12 +672,13 @@
             opacity: 1;
         }
 
+        /* Multi-column (not grid) so entries read top-to-bottom down the left column first,
+           then continue in the right column - instead of a row-major left/right zig-zag. */
         .rawGrid {
             min-height: 0;
             overflow: hidden;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 2px 18px;
+            columns: 2;
+            column-gap: 18px;
             font-family: ui-monospace, SFMono-Regular, 'SF Mono', Consolas, 'Liberation Mono', monospace;
             font-size: 12px;
             background: var(--input-bg);
@@ -603,7 +694,7 @@
 
         @media (max-width: 480px) {
             .rawGrid {
-                grid-template-columns: 1fr;
+                columns: 1;
             }
         }
 
@@ -612,6 +703,7 @@
             justify-content: space-between;
             padding: 4px 0;
             border-bottom: 1px solid var(--border);
+            break-inside: avoid;
         }
 
         .rawRow>span:first-child {
@@ -826,8 +918,8 @@
         }
 
         .segmented button.active {
-            background: var(--surface);
-            color: var(--text);
+            background: var(--accent);
+            color: #fff;
         }
 
         .chipRow {
@@ -1332,6 +1424,10 @@
             $('#heroStatusLabel').style.color = si.color;
             $('#heroStatusLabel').textContent = si.label;
             $('#heroUpdated').textContent = WPC.lastRefresh || '—';
+
+            // Warm the hero ember while the stove is actually producing flame (Test Fire,
+            // Ignition, Burning, Clean Fire) - keeps the ambient glow tied to real state.
+            document.querySelector('.hero').classList.toggle('is-firing', [2, 3, 4, 5, 6, 11].includes(r.STATUS));
 
             const defs = statDefs();
 

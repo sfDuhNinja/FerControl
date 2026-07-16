@@ -4,12 +4,23 @@
     <div class="kvRow"><span>Firmware</span><span class="mono" id="sysVersion">—</span></div>
     <div class="kvRow"><span>Uptime</span><span class="mono" id="sysUptime">—</span></div>
     <div class="kvRow"><span>Free heap</span><span class="mono" id="sysFreeheap">—</span></div>
+    <div class="kvRow"><span>Stove</span><span class="mono" id="sysStove">—</span></div>
 </div>
 
 <script>
     // qsp is substituted at build time by pio_pre_build_spa.py
     // Crash logs are surfaced via the top-level banner (see index_template.html WPC.setCrashInfo)
     // instead of a row here, so there's nothing left to wire up for them in this fragment.
+
+    // Stove link status is fed by the Status fragment that owns the live stove stream
+    // (status2.html), since this Module fragment only fetches /gs once when the section opens.
+    // Registered as a WPC consumer so the producer fragment doesn't need to reach across scopes.
+    WPC.setStoveConnected = function (connected) {
+        const el = $(qsp + '#sysStove');
+        if (!el) return;
+        el.textContent = connected ? 'Connected' : 'Not Connected';
+        el.style.color = connected ? 'var(--success)' : 'var(--text-dim)';
+    };
 
     onSectionOpen('Status', function () {
         getJSON("/gs" + qsp[8], function (GS) {

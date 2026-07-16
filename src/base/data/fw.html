@@ -68,12 +68,16 @@
         banner.style.display = '';
         banner.style.background = updateAvailable ? 'var(--accent-soft)' : 'var(--success-soft)';
         $('#fwBannerLabel').style.color = updateAvailable ? 'var(--accent-text)' : 'var(--success)';
-        $('#fwBannerLabel').textContent = (updateAvailable ? 'Update available' : 'Up to date') + (fwState.latestVersion ? (' · v' + fwState.latestVersion) : '');
+        // Append the version only when an update is available (there it names the NEW version).
+        // When up to date it would just repeat the "Current firmware" value shown above.
+        $('#fwBannerLabel').textContent = (updateAvailable ? 'Update available' : 'Up to date') + (updateAvailable && fwState.latestVersion ? (' · v' + fwState.latestVersion) : '');
         $('#fwInstallBtn').style.display = updateAvailable ? '' : 'none';
-        // Skip when the release title is just the bare version number (e.g. "0.3.18") -
-        // that's already shown in the banner label above ("Update available · v0.3.18").
-        const showTitle = fwState.latestTitle && fwState.latestTitle !== fwState.latestVersion;
-        $('#fwLatestTitle').textContent = showTitle ? fwState.latestTitle : '';
+        // Release names are "<version> - <desc>"; the firmware strips the version prefix but a
+        // leading separator ("- ", ": ") or stray markdown marker can remain - drop it so the
+        // title starts on the words. Skip entirely if it's just the bare version number.
+        const cleanTitle = (fwState.latestTitle || '').replace(/^[\s\-–—:*]+/, '');
+        const showTitle = cleanTitle && cleanTitle !== fwState.latestVersion;
+        $('#fwLatestTitle').textContent = showTitle ? cleanTitle : '';
         $('#fwReleaseDate').textContent = fwState.releaseDate ? ('Released ' + fwState.releaseDate) : '';
         // Release notes are plain GitHub-flavored markdown; this renders every non-empty
         // line as one flat bullet, so strip markdown list markers and bold markers to avoid

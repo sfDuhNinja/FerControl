@@ -361,6 +361,18 @@ bool Application::getLatestUpdateInfo(char *version, char *title /* = nullptr */
 
   http.end();
 
+  // The release is named "<version> - <description>"; the version-prefix strip above can leave
+  // a leading separator ("- ", ": ") on the title. Trim it so both the web UI and the Home
+  // Assistant update entity show a clean title that starts on the words.
+  if (title && title[0])
+  {
+    char *t = title;
+    while (*t == ' ' || *t == '-' || *t == ':')
+      t++;
+    if (t != title)
+      memmove(title, t, strlen(t) + 1);
+  }
+
   return version && version[0] != '\0';
 }
 

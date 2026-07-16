@@ -1,12 +1,4 @@
-<div class="hairlineTop">
-    <div class="subhead">Stove</div>
-    <div class="kvGrid">
-        <div class="kvRow"><span>Status</span><span id="appStoveStatus">—</span></div>
-        <div class="kvRow"><span>Feeder</span><span class="mono" id="appStoveFdr">—</span></div>
-    </div>
-</div>
-
-<button class="linkBtn" id="rawToggleBtn" style="margin-top:20px;">
+<button class="linkBtn" id="rawToggleBtn" style="margin-top:16px;">
     <svg width="11" height="11" viewBox="0 0 24 24" fill="none" class="chev" id="rawChev">
         <path d="M6 9l6 6 6-6" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
     </svg>
@@ -29,29 +21,13 @@
         $(qsp + '#rawGrid').innerHTML = rows;
     }
 
-    // Mirrors the STATUS_Text mapping used for the Home Assistant sensor (WPalaControl.cpp),
-    // kept in sync manually since one lives as a Jinja template and the other as JS.
-    const STATUS_TEXT = {
-        0: 'Off', 1: 'Off Timer', 2: 'Test Fire', 3: 'Ignition', 4: 'Ignition', 5: 'Ignition',
-        6: 'Burning', 9: 'Cool', 10: 'Fire Stop', 11: 'Clean Fire', 12: 'Cool',
-        239: 'MFDoor Alarm', 240: 'Fire Error', 241: 'Chimney Alarm', 243: 'Grate Error',
-        244: 'NTC2 Alarm', 245: 'NTC3 Alarm', 247: 'Door Alarm', 248: 'Pressure Alarm',
-        249: 'NTC1 Alarm', 250: 'TC1 Alarm', 252: 'Gas Alarm', 253: 'No Pellet Alarm'
-    };
-
-    function updateDerivedRows() {
-        if (raw.STATUS !== undefined) {
-            const code = parseInt(raw.STATUS);
-            $(qsp + '#appStoveStatus').textContent = STATUS_TEXT[code] || ('Unknown STATUS code ' + code);
-        }
-        if (raw.FDR !== undefined) $(qsp + '#appStoveFdr').textContent = parseFloat(raw.FDR).toFixed(1) + 's';
-    }
-
     function mergeRaw(partial) {
         Object.assign(raw, partial);
         WPC.updateRaw(partial);
         renderRawGrid();
-        updateDerivedRows();
+        // Any stove data arriving (SSE tick or a successful GET) means the module is talking to
+        // the stove - the Module section shows this as the "Stove" connectivity row.
+        if (WPC.setStoveConnected) WPC.setStoveConnected(true);
     }
 
     $(qsp + '#rawToggleBtn').addEventListener('click', function () {
@@ -98,6 +74,9 @@
             try {
                 const res = await fetch('/cgi-bin/sendmsg.lua?cmd=GET+' + cmd).then(function (r) { return r.json(); });
                 if (res && res.SUCCESS && res.DATA) mergeRaw(res.DATA);
+                // res with SUCCESS:false means the stove didn't answer (TIMEOUT/NODATA) - reflect
+                // that as "Not Connected". mergeRaw already flips it back to Connected on success.
+                else if (res && res.SUCCESS === false && WPC.setStoveConnected) WPC.setStoveConnected(false);
             } catch (e) {
                 // fall through - the next SSE tick backfills it
             }
