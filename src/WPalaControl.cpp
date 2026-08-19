@@ -477,11 +477,9 @@ void WPalaControl::mqttPublishStoveHassDiscovery(HassDiscoveryCtx &ctx, Palazzet
   //
 
   // define probe number
-  uint8_t probeNumber = staticData.MAINTPROBE;                                                           // default case covering AirType and other HydroType
-  if (isHydroType && (staticData.UICONFIG == 1 || staticData.UICONFIG == 3 || staticData.UICONFIG == 4)) // for Hydro which are in a Config controlling Water temperature
-    probeNumber = 0;                                                                                     // T1
-  else if (isHydroType && staticData.UICONFIG == 2)                                                      // this stove: buffer top is the meaningful feedback temp, not internal (T1)
-    probeNumber = 4;                                                                                      // T5
+  uint8_t probeNumber = staticData.MAINTPROBE;                                                                                       // default case covering AirType and other HydroType
+  if (isHydroType && (staticData.UICONFIG == 1 || staticData.UICONFIG == 2 || staticData.UICONFIG == 3 || staticData.UICONFIG == 4)) // for Hydro which are in a Config controlling Water temperature
+    probeNumber = 0;                                                                                                                 // T1 (internal temperature)
 
   String probeField = String(F("T")) + (char)('1' + probeNumber);
 
