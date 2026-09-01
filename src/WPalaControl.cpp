@@ -1987,8 +1987,23 @@ Palazzetti::CommandResult WPalaControl::executePalaCmdSet(const String &cmd, Jso
 
     if (requireParams(1))
     {
+      // cmdParams[0] is the eco-adjusted value the client sees (HA's "temperature" state
+      // is always ecoAdjustedSetpoint()'d on the way out), but setSetpoint() writes straight
+      // to the stove's raw register with no compensation. While BECO (eco mode) is active,
+      // that mismatch silently shifts every commanded target down by ECO_SETPOINT_OFFSET on
+      // top of the intended step - e.g. one press of "-1" from a displayed 55 wrote a raw 54,
+      // which then read back eco-adjusted as 51 (a 4-degree drop for a 1-degree request).
+      // Read the live BECO flag and add the offset back before writing, so the raw register
+      // ends up at the value that will read back as what was actually requested.
+      Palazzetti::SetPointData currentSetPointData;
+      uint8_t liveBECO = _lastKnownBECO;
+      if (_Pala.getSetPoint(currentSetPointData) == Palazzetti::CommandResult::OK)
+        liveBECO = currentSetPointData.BECO;
+
+      float rawTarget = cmdParams[0] + (liveBECO ? ECO_SETPOINT_OFFSET : 0.0f);
+
       float SETPResult;
-      cmdSuccess = _Pala.setSetpoint((uint8_t)cmdParams[0], &SETPResult);
+      cmdSuccess = _Pala.setSetpoint((uint8_t)rawTarget, &SETPResult);
 
       if (cmdSuccess == Palazzetti::CommandResult::OK)
       {
@@ -2004,7 +2019,7 @@ Palazzetti::CommandResult WPalaControl::executePalaCmdSet(const String &cmd, Jso
           addFloat(data, "SETP", ecoAdjustedSetpoint(setPointData.SETP, setPointData.BECO));
         }
         else
-          addFloat(data, "SETP", ecoAdjustedSetpoint(SETPResult, _lastKnownBECO));
+          addFloat(data, "SETP", ecoAdjustedSetpoint(SETPResult, liveBECO));
       }
     }
   }
