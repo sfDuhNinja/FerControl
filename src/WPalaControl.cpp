@@ -530,7 +530,9 @@ void WPalaControl::mqttPublishStoveHassDiscovery(HassDiscoveryCtx &ctx, Palazzet
   }
 
   // Adjust max_temp for stove with air temperature setPoint, goal is to center the range around 19°C (Does someone really wants its room at 51°C ...)
-  json[F("max_temp")] = (isHydroType && (staticData.UICONFIG == 1 || staticData.UICONFIG == 3 || staticData.UICONFIG == 4)) ? staticData.SPLMAX : staticData.SPLMIN + 2 * (19 - staticData.SPLMIN);
+  // UICONFIG 2 controls Water temperature on this hardware (see probeNumber selection above), so it belongs
+  // in the SPLMAX branch alongside 1/3/4 - not the air-setpoint formula.
+  json[F("max_temp")] = (isHydroType && (staticData.UICONFIG == 1 || staticData.UICONFIG == 2 || staticData.UICONFIG == 3 || staticData.UICONFIG == 4)) ? staticData.SPLMAX : staticData.SPLMIN + 2 * (19 - staticData.SPLMIN);
   json[F("min_temp")] = staticData.SPLMIN;
 
   setTemplateField(F("mode_state_template"), F("STATUS"), F("{{ iif(int({v}) > 0, 'heat', 'off') }}"));
