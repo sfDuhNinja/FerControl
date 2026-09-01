@@ -1991,7 +1991,21 @@ Palazzetti::CommandResult WPalaControl::executePalaCmdSet(const String &cmd, Jso
       cmdSuccess = _Pala.setSetpoint((uint8_t)cmdParams[0], &SETPResult);
 
       if (cmdSuccess == Palazzetti::CommandResult::OK)
-        addFloat(data, "SETP", ecoAdjustedSetpoint(SETPResult, _lastKnownBECO));
+      {
+        // setSetpoint()'s result is the write's local echo, not a confirmation from the
+        // stove. Some stoves (e.g. while STATUS is off) silently ignore a setpoint write,
+        // so re-read the register here and publish what the stove actually holds - instead
+        // of the optimistic value, which would otherwise linger in HA until the next full
+        // poll cycle (up to ~1 minute) reverts it, looking like a random unexplained change.
+        Palazzetti::SetPointData setPointData;
+        if (_Pala.getSetPoint(setPointData) == Palazzetti::CommandResult::OK)
+        {
+          _lastKnownBECO = setPointData.BECO;
+          addFloat(data, "SETP", ecoAdjustedSetpoint(setPointData.SETP, setPointData.BECO));
+        }
+        else
+          addFloat(data, "SETP", ecoAdjustedSetpoint(SETPResult, _lastKnownBECO));
+      }
     }
   }
   else if (cmd.startsWith(F("SET SLNT ")))
