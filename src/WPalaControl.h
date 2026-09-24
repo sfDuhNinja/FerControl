@@ -88,6 +88,10 @@ private:
   Palazzetti::CommandResult executePalaCmdSet(const String &cmd, JsonObject &data, JsonObject &info, const __FlashStringHelper *&palaCategory, bool &cmdProcessed, uint8_t cmdParamNumber, const uint16_t *cmdParams);
   Palazzetti::CommandResult executePalaCmdExt(const String &cmd, JsonObject &data, JsonObject &info, const __FlashStringHelper *&palaCategory, bool &cmdProcessed, uint8_t cmdParamNumber, const uint16_t *cmdParams);
 
+  bool usesWaterSetpointParam();
+  Palazzetti::CommandResult readSetpoint(float &setp);
+  Palazzetti::CommandResult writeSetpoint(float target, float &confirmed);
+
   void publishTick();
   void udpRequestHandler(WiFiUDP &udpServer);
 

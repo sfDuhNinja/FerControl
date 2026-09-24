@@ -6,6 +6,67 @@
 #define PALA_SERIAL Serial2
 #endif
 
+// On UICONFIG 2 hydro stoves the thermostat setpoint (the one shown on the panel) is
+// parameter 0x54. The library reads/writes SETP at 0x1C33 because these stoves report
+// FLUID=1, but the stove derives 0x1C33 from 0x54 and overwrites any direct write to it.
+// Observed with eco on: 0x1C33 = 0x54 + 3 (58/55, 59/56) - the "3°C eco offset" once
+// hardcoded here was this derivation, so reading 0x54 directly makes that constant unneeded.
+static constexpr uint8_t WATER_SETPOINT_PARAM = 0x54;
+
+bool WPalaControl::usesWaterSetpointParam()
+{
+  Palazzetti::StaticData sd;
+  if (_Pala.getStaticData(sd) != Palazzetti::CommandResult::OK)
+    return false;
+  bool isHydroType = (sd.STOVETYPE == 2 || sd.STOVETYPE == 4 || sd.STOVETYPE == 6);
+  return isHydroType && sd.UICONFIG == 2;
+}
+
+Palazzetti::CommandResult WPalaControl::readSetpoint(float &setp)
+{
+  Palazzetti::CommandResult res;
+  if (usesWaterSetpointParam())
+  {
+    uint8_t v;
+    res = _Pala.getParameter(WATER_SETPOINT_PARAM, &v);
+    if (res == Palazzetti::CommandResult::OK)
+      setp = v;
+    return res;
+  }
+
+  Palazzetti::SetPointData d;
+  res = _Pala.getSetPoint(d);
+  if (res == Palazzetti::CommandResult::OK)
+    setp = d.SETP;
+  return res;
+}
+
+// Writes the setpoint, then re-reads it: a write can be acknowledged on the bus yet
+// ignored by the stove, so 'confirmed' is what the stove actually holds afterwards.
+Palazzetti::CommandResult WPalaControl::writeSetpoint(float target, float &confirmed)
+{
+  Palazzetti::CommandResult res;
+  if (usesWaterSetpointParam())
+  {
+    Palazzetti::StaticData sd;
+    _Pala.getStaticData(sd);
+    if (target < sd.SPLMIN)
+      target = sd.SPLMIN;
+    if (target > sd.SPLMAX)
+      target = sd.SPLMAX;
+    confirmed = target;
+    res = _Pala.setParameter(WATER_SETPOINT_PARAM, (uint8_t)target);
+  }
+  else
+    res = _Pala.setSetpoint(target, &confirmed);
+
+  if (res != Palazzetti::CommandResult::OK)
+    return res;
+
+  readSetpoint(confirmed); // on failure, keep the written value
+  return Palazzetti::CommandResult::OK;
+}
+
 // Serial management functions -------------
 int WPalaControl::myOpenSerial(uint32_t baudrate)
 {
@@ -1201,7 +1262,10 @@ Palazzetti::CommandResult WPalaControl::executePalaCmdGet(const String &cmd, Jso
       data["FSTATUS"] = allStatusData.FSTATUS;
       if (allStatusData.isMFSTATUSValid)
         data["MFSTATUS"] = allStatusData.MFSTATUS;
-      addFloat(data, "SETP", allStatusData.SETP);
+      float setp = allStatusData.SETP;
+      if (usesWaterSetpointParam())
+        readSetpoint(setp);
+      addFloat(data, "SETP", setp);
       data["PUMP"] = allStatusData.PUMP;
       // 0xFFFF is the stove's "not available" sentinel for this counter (never populated by
       // this OEM firmware) - omit rather than publish a meaningless "65535 kg".
@@ -1462,9 +1526,13 @@ Palazzetti::CommandResult WPalaControl::executePalaCmdGet(const String &cmd, Jso
     Palazzetti::SetPointData setPointData;
     cmdSuccess = _Pala.getSetPoint(setPointData);
 
+    float setp = setPointData.SETP;
+    if (cmdSuccess == Palazzetti::CommandResult::OK && usesWaterSetpointParam())
+      cmdSuccess = readSetpoint(setp);
+
     if (cmdSuccess == Palazzetti::CommandResult::OK)
     {
-      addFloat(data, "SETP", setPointData.SETP);
+      addFloat(data, "SETP", setp);
       addFloat(data, "SECO", setPointData.SECO);
       data["BECO"] = setPointData.BECO;
     }
@@ -1977,21 +2045,10 @@ Palazzetti::CommandResult WPalaControl::executePalaCmdSet(const String &cmd, Jso
     if (requireParams(1))
     {
       float SETPResult;
-      cmdSuccess = _Pala.setSetpoint((uint8_t)cmdParams[0], &SETPResult);
+      cmdSuccess = writeSetpoint(cmdParams[0], SETPResult);
 
       if (cmdSuccess == Palazzetti::CommandResult::OK)
-      {
-        // setSetpoint()'s result is the write's local echo, not a confirmation from the
-        // stove. Some stoves (e.g. while STATUS is off) silently ignore a setpoint write,
-        // so re-read the register here and publish what the stove actually holds - instead
-        // of the optimistic value, which would otherwise linger in HA until the next full
-        // poll cycle (up to ~1 minute) reverts it, looking like a random unexplained change.
-        Palazzetti::SetPointData setPointData;
-        if (_Pala.getSetPoint(setPointData) == Palazzetti::CommandResult::OK)
-          addFloat(data, "SETP", setPointData.SETP);
-        else
-          addFloat(data, "SETP", SETPResult);
-      }
+        addFloat(data, "SETP", SETPResult);
     }
   }
   else if (cmd.startsWith(F("SET SLNT ")))
@@ -2024,7 +2081,14 @@ Palazzetti::CommandResult WPalaControl::executePalaCmdSet(const String &cmd, Jso
     palaCategory = F("SETP");
 
     float SETPResult;
-    cmdSuccess = _Pala.setSetPointDown(&SETPResult);
+    if (usesWaterSetpointParam())
+    {
+      cmdSuccess = readSetpoint(SETPResult);
+      if (cmdSuccess == Palazzetti::CommandResult::OK)
+        cmdSuccess = writeSetpoint(SETPResult - 1.0f, SETPResult);
+    }
+    else
+      cmdSuccess = _Pala.setSetPointDown(&SETPResult);
 
     if (cmdSuccess == Palazzetti::CommandResult::OK)
       addFloat(data, "SETP", SETPResult);
@@ -2051,7 +2115,7 @@ Palazzetti::CommandResult WPalaControl::executePalaCmdSet(const String &cmd, Jso
     if (info["MSG"].isNull())
     {
       float SETPResult;
-      cmdSuccess = _Pala.setSetpoint(setPointFloat, &SETPResult);
+      cmdSuccess = writeSetpoint(setPointFloat, SETPResult);
 
       if (cmdSuccess == Palazzetti::CommandResult::OK)
         addFloat(data, "SETP", SETPResult);
@@ -2063,7 +2127,14 @@ Palazzetti::CommandResult WPalaControl::executePalaCmdSet(const String &cmd, Jso
     palaCategory = F("SETP");
 
     float SETPResult;
-    cmdSuccess = _Pala.setSetPointUp(&SETPResult);
+    if (usesWaterSetpointParam())
+    {
+      cmdSuccess = readSetpoint(SETPResult);
+      if (cmdSuccess == Palazzetti::CommandResult::OK)
+        cmdSuccess = writeSetpoint(SETPResult + 1.0f, SETPResult);
+    }
+    else
+      cmdSuccess = _Pala.setSetPointUp(&SETPResult);
 
     if (cmdSuccess == Palazzetti::CommandResult::OK)
       addFloat(data, "SETP", SETPResult);
